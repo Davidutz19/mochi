@@ -1,0 +1,46 @@
+import QtQuick
+import Quickshell
+import qs.island
+
+// An app's icon: a picture file, or a name from the icon theme, or the
+// window symbol when neither is found.
+Item {
+    id: root
+
+    property string icon: ""
+    property real size: 22
+
+    readonly property string source: {
+        if (icon === "")
+            return "";
+        if (icon.startsWith("/"))
+            return `file://${icon.split("/").map(encodeURIComponent).join("/")}`;
+        return Quickshell.iconPath(icon, true);
+    }
+
+    implicitWidth: size
+    implicitHeight: size
+
+    Image {
+        id: picture
+
+        anchors.fill: parent
+        source: root.source
+        sourceSize.width: root.size * 2
+        sourceSize.height: root.size * 2
+        fillMode: Image.PreserveAspectFit
+        // A theme icon loads here: Qt's icon themes break when read from
+        // the loading thread while this one reads them too. Files load
+        // in the background.
+        asynchronous: !String(source).startsWith("image://icon/")
+        smooth: true
+    }
+
+    Symbol {
+        anchors.centerIn: parent
+        visible: picture.status !== Image.Ready
+        name: "window"
+        size: root.size * 0.8
+        color: Theme.muted
+    }
+}

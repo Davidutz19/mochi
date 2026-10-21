@@ -1388,6 +1388,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "mochi-module-dock"
+version = "0.4.1"
+dependencies = [
+ "include_dir",
+ "mochi-core",
+ "schemars",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "mochi-module-drop"
 version = "0.4.2"
 dependencies = [
@@ -1800,6 +1813,7 @@ dependencies = [
  "mochi-module-colors",
  "mochi-module-control-center",
  "mochi-module-demo",
+ "mochi-module-dock",
  "mochi-module-drop",
  "mochi-module-emoji",
  "mochi-module-idle",

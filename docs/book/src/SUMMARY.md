@@ -38,6 +38,7 @@
 - [Share](modules/share.md)
 - [Clipboard](modules/clipboard.md)
 - [Tray](modules/tray.md)
+- [Dock](modules/dock.md)
 - [Widgets](modules/widgets.md)
 - [Notes](modules/notes.md)
 - [Emoji](modules/emoji.md)

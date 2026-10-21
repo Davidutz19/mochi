@@ -1111,6 +1111,7 @@ fn icon(module: &str) -> &'static str {
         "clipboard" => "content_paste",
         "clock" => "schedule",
         "colors" => "colorize",
+        "dock" => "dock_to_bottom",
         "drop" => "place_item",
         "emoji" => "mood",
         "control-center" => "space_dashboard",

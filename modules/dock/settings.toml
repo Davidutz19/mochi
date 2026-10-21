@@ -1,0 +1,11 @@
+# Dock: your pinned apps and the ones running, as a row of icons in a
+# bubble. A click starts an app, focuses it, or switches between its
+# windows; a middle click starts another one; the wheel goes through its
+# windows. Starting apps goes through the launcher module.
+[module.dock]
+# Apps that stay in the dock, in this order, running or not.
+# pinned = []
+# Show apps that are running but not pinned, after the pinned ones.
+# running = true
+# Each monitor's dock shows only the windows on that monitor.
+# per_monitor = false

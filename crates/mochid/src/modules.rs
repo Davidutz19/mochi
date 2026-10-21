@@ -42,6 +42,7 @@ pub fn builtin() -> Vec<Box<dyn Module>> {
         Box::new(mochi_module_share::Share),
         Box::new(mochi_module_clipboard::Clipboard),
         Box::new(mochi_module_tray::Tray),
+        Box::new(mochi_module_dock::Dock),
         Box::new(mochi_module_network::Network),
         Box::new(mochi_module_bluetooth::Bluetooth),
         Box::new(mochi_module_battery::BatteryModule),
