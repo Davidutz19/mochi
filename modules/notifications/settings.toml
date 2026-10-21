@@ -21,11 +21,10 @@
 # chat app's message sound. Only notifications that ask make one, and none
 # during do not disturb.
 # sounds = true
-# What plays a sound file, with any options of your own; the file goes
-# last. [] uses pw-play or paplay for files, and canberra-gtk-play for
-# sounds from the theme. Like: sound_command = ["mpv", "--really-quiet"]
+# What plays a sound file; the file goes last. None uses pw-play or paplay
+# for files, and canberra-gtk-play for sounds from the theme.
 # sound_command = []
 # The sound theme names like "message-new-instant" come from, when
-# canberra-gtk-play isn't installed or sound_command is set. Sounds it
-# lacks come from "freedesktop".
+# canberra-gtk-play isn't installed or a sound command is set above. Sounds
+# it lacks come from the freedesktop theme.
 # sound_theme = "freedesktop"

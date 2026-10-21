@@ -19,6 +19,9 @@ build = "cargo build --release --locked --target-dir target && install -Dm755 ta
 [release]
 asset = "pomodoro-{version}-{arch}-linux.tar.gz"
 
+[bubbles]
+area = "center-right"
+
 [uses]
 # With `pause_media`, a focus session pauses what's playing.
 state = ["media"]

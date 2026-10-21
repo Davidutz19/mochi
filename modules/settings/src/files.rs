@@ -76,6 +76,8 @@ pub struct Request {
     pub filter: Option<&'static Filter>,
     /// Where the dialog opens, like the folder of the file chosen before.
     pub folder: Option<PathBuf>,
+    /// A folder instead of a file: `x-filter = "folder"`.
+    pub directory: bool,
 }
 
 /// Asks for a file: through the portal on `bus`, or else the first of
@@ -129,6 +131,9 @@ async fn portal(
     let mut options: HashMap<&str, Value<'_>> = HashMap::new();
     options.insert("handle_token", Value::from(token.as_str()));
     options.insert("modal", Value::from(true));
+    if request.directory {
+        options.insert("directory", Value::from(true));
+    }
     if let Some(filter) = request.filter {
         let only = (filter.name, vec![(1u32, filter.mime)]);
         let all = ("All files", vec![(0u32, "*")]);
@@ -244,6 +249,9 @@ fn dialog_args(program: &str, request: &Request) -> Vec<String> {
                 "--file-selection".to_owned(),
                 format!("--title={}", request.title),
             ];
+            if request.directory {
+                args.push("--directory".to_owned());
+            }
             if let Some(folder) = folder {
                 // With a slash, it opens in the folder rather than at a
                 // file of that name.
@@ -263,7 +271,11 @@ fn dialog_args(program: &str, request: &Request) -> Vec<String> {
             let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_owned());
             let mut args = vec![
                 format!("--title={}", request.title),
-                "--getopenfilename".to_owned(),
+                if request.directory {
+                    "--getexistingdirectory".to_owned()
+                } else {
+                    "--getopenfilename".to_owned()
+                },
                 folder.map_or(home, |folder| folder.to_string()),
             ];
             if let Some(filter) = request.filter {
@@ -430,7 +442,20 @@ mod tests {
             title: "Choose the sound file".into(),
             filter: filter("audio"),
             folder: Some(PathBuf::from("/tmp")),
+            directory: false,
         }
+    }
+
+    #[test]
+    fn folders_ask_for_a_folder() {
+        let request = Request {
+            title: "Choose the screenshots".into(),
+            directory: true,
+            ..Request::default()
+        };
+        assert!(dialog_args("zenity", &request).contains(&"--directory".to_owned()));
+        assert!(dialog_args("kdialog", &request).contains(&"--getexistingdirectory".to_owned()));
+        assert!(!dialog_args("kdialog", &request).contains(&"--getopenfilename".to_owned()));
     }
 
     #[tokio::test]

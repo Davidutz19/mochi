@@ -39,8 +39,9 @@ use std::time::{Duration, Instant};
 
 use include_dir::{Dir, include_dir};
 use mochi_core::{
-    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Assets, BoxFuture, BubbleId, BubbleSpec,
-    ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError, ModuleEvent, Priority,
+    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Assets, BoxFuture, BubbleHome, BubbleId,
+    BubbleSpec, ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError, ModuleEvent,
+    Priority,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -120,9 +121,16 @@ fn payload(settings: &Settings, tracker: &Tracker) -> Value {
     payload
 }
 
+/// Where its bubbles go unless the user moves them.
+const BUBBLES: BubbleHome = BubbleHome::new(Area::CenterLeft).wide();
+
 impl Module for Media {
     fn id(&self) -> &'static str {
         "media"
+    }
+
+    fn bubbles(&self) -> Option<BubbleHome> {
+        Some(BUBBLES)
     }
 
     fn assets(&self) -> Assets {
@@ -349,7 +357,7 @@ impl Screen {
         let spec = BubbleSpec::new("Bubble")
             .wide("BubbleWide")
             .key(KEY)
-            .area(Area::CenterLeft)
+            .at(&BUBBLES)
             .payload(payload(settings, tracker));
         self.bubble = Some(ctx.show_bubble(spec));
         self.bubble_ends = (player.status != Status::Playing)

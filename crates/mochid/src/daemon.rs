@@ -344,7 +344,8 @@ impl Daemon {
             config.bubbles.modules.clone(),
             Some(config.bubbles.max_per_area),
         );
-        self.bubbles.set_stack(config.bubbles.stacking());
+        self.bubbles
+            .arrange(config.bubbles.arrangements(), config.bubbles.stacking());
         self.tell_offers();
         Ok(())
     }
@@ -1141,6 +1142,7 @@ impl Daemon {
             SettingsOp::Export { format } => return self.store.export(&format).map(Value::String),
             SettingsOp::Set { path, value } => settings::Op::Set { path, value },
             SettingsOp::Reset { path } => settings::Op::Reset { path },
+            SettingsOp::Arrange { placements } => settings::Op::Arrange(placements),
             SettingsOp::Discard => settings::Op::Discard,
             SettingsOp::Edit { path, text } => settings::Op::Edit { path, text },
             SettingsOp::Preview { values, replace } => settings::Op::Preview { values, replace },
@@ -1465,6 +1467,7 @@ impl Daemon {
             bubbles,
             overflow,
             stack: self.bubbles.stack(),
+            arrangements: self.bubbles.arrangements().to_vec(),
             tooltip_ms: (self.tooltip_ms > 0).then_some(self.tooltip_ms),
         }
     }

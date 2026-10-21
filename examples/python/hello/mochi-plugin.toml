@@ -21,3 +21,7 @@ args = [{ name = "text", description = "What to say, instead of the greeting", o
 [[actions]]
 name = "count"
 description = "Print how many times it said something"
+
+# Where its bubble goes unless the user moves it, as hello.py shows it.
+[bubbles]
+area = "right"

@@ -8,5 +8,3 @@
 # auto_break = true
 # Pauses the media player when focus starts.
 # pause_media = false
-# Where the countdown bubble goes: left, center-left, center-right, right.
-# area = "center-right"

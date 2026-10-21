@@ -34,6 +34,7 @@ pub struct Idle;
 #[serde(default, deny_unknown_fields)]
 struct Settings {
     /// Qt time format, as used by `Qt.formatTime`.
+    #[schemars(extend("x-suggest" = [{"value": "HH:mm", "label": "24-hour, like 14:05"}, {"value": "h:mm AP", "label": "12-hour, like 2:05 PM"}, {"value": "HH:mm:ss", "label": "24-hour with seconds, like 14:05:09"}, {"value": "h:mm:ss AP", "label": "12-hour with seconds, like 2:05:09 PM"}]))]
     format: String,
     /// What a click runs: a module, its action, then the arguments.
     #[schemars(extend("x-source" = "command"))]

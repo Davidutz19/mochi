@@ -7,7 +7,7 @@
 # island_ms = 3000
 # How long a paused player's bubble stays.
 # paused_ms = 3000
-# Players never shown, by name, like ["firefox"].
+# Players never shown.
 # ignore = []
 # The progress line waves while a track plays. Off keeps it flat. The theme's
 # waves, under Motion, can keep every wave flat whatever this says.

@@ -1,13 +1,12 @@
 # Idle: the clock shown when nothing else is.
 [module.idle]
-# The time format, in Qt's notation: HH:mm, hh:mm AP, HH:mm:ss.
+# How the clock shows the time.
 # format = "HH:mm"
-# What a click runs: a module, its action, then the action's arguments.
-# [] does nothing.
+# What a click on the clock does. None does nothing.
 # click = ["control-center", "toggle"]
-# What resting the pointer on it runs, the same way, like
-# ["workspaces", "show"] for the workspace dots. [] does nothing.
+# What resting the pointer on it does, like showing the workspace dots.
+# None does nothing.
 # hover = []
-# How long the pointer rests on it before `hover` runs, in milliseconds,
+# How long the pointer rests on it before that happens, in milliseconds,
 # so passing over it or clicking it doesn't.
 # hover_delay_ms = 350

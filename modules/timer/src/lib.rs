@@ -54,9 +54,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use include_dir::{Dir, include_dir};
 use mochi_core::sound::{self, Sound, Speaker};
 use mochi_core::{
-    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Assets, BoxFuture, BubbleId, BubbleSpec,
-    CallError, ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError, ModuleEvent,
-    Priority,
+    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Assets, BoxFuture, BubbleHome, BubbleId,
+    BubbleSpec, CallError, ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError,
+    ModuleEvent, Priority,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -128,20 +128,22 @@ struct Settings {
     /// What plays the alarm instead of pw-play or paplay, with any options
     /// of your own; the file goes last, and volume doesn't apply. Like
     /// ["mpv", "--really-quiet"].
+    #[schemars(extend("x-suggest" = [["pw-play"], ["paplay"], ["mpv", "--no-video", "--really-quiet"], ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet"]]))]
     sound_command: Vec<String>,
     /// Plays the alarm when a focus session or a break ends too.
     focus_sound: bool,
     /// Pauses the music or video playing when a custom timer ends, through
     /// the media module.
     pause_media: bool,
-    /// The bubbles of custom timers: one for each, side by side, one for
-    /// the timer that ends first, or none.
+    /// The bubbles of custom timers: one for each, side by side, or one for
+    /// the timer that ends first.
     timer_bubbles: TimerBubbles,
     /// The seconds "+1 min" adds to a custom timer.
     #[schemars(range(min = 1, max = 3600))]
     extend_seconds: u64,
     /// The lengths the clock panel's Timer tab and the launcher offer,
     /// like "5m" or "1h 30m".
+    #[schemars(extend("x-source" = "duration"))]
     presets: Vec<String>,
     /// Seconds the notice at the end of a phase or a timer stays on screen.
     #[schemars(range(min = 5, max = 600))]
@@ -216,13 +218,18 @@ enum TimerBubbles {
     Each,
     /// One bubble, for the timer that ends first.
     Soonest,
-    /// No bubbles; the clock panel and the launcher still show them.
-    Off,
 }
+
+/// Where its bubbles go unless the user moves them.
+const BUBBLES: BubbleHome = BubbleHome::new(Area::CenterRight).wide();
 
 impl Module for Timer {
     fn id(&self) -> &'static str {
         "timer"
+    }
+
+    fn bubbles(&self) -> Option<BubbleHome> {
+        Some(BUBBLES)
     }
 
     fn assets(&self) -> Assets {
@@ -749,7 +756,7 @@ impl State {
                 let spec = BubbleSpec::new("Bubble")
                     .key("countdown")
                     .wide("Wide")
-                    .area(Area::CenterRight)
+                    .at(&BUBBLES)
                     .payload(payload)
                     .news();
                 self.bubble = Some(ctx.show_bubble(spec));
@@ -781,7 +788,6 @@ impl State {
                 .map(|timer| (0, timer_payload(timer, now, count)))
                 .into_iter()
                 .collect(),
-            TimerBubbles::Off => Vec::new(),
         };
         let fresh = self.fresh.take();
         self.bubbles.retain(|key, bubble| {
@@ -801,7 +807,7 @@ impl State {
                     let spec = BubbleSpec::new("Bubble")
                         .key(format!("timer-{key}"))
                         .wide("Wide")
-                        .area(Area::CenterRight)
+                        .at(&BUBBLES)
                         .group("timers")
                         .order(i32::try_from(key).unwrap_or(i32::MAX).saturating_add(1))
                         .payload(payload)

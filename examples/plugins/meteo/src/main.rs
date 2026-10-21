@@ -21,7 +21,6 @@ struct Settings {
     longitude: Option<f64>,
     units: Units,
     refresh_minutes: u64,
-    bubble: Option<Area>,
 }
 
 impl Default for Settings {
@@ -32,7 +31,6 @@ impl Default for Settings {
             longitude: None,
             units: Units::Metric,
             refresh_minutes: 20,
-            bubble: None,
         }
     }
 }
@@ -102,10 +100,10 @@ async fn run(mut ctx: ModuleCtx) -> Result<(), mochi_sdk::Error> {
                     }
                 };
                 ctx.publish_state(weather.clone());
-                if let Some(area) = settings.bubble
-                    && weather.get("temperature").is_some()
-                {
-                    let spec = BubbleSpec::new("Bubble").key("now").area(area).payload(weather.clone());
+                if weather.get("temperature").is_some() {
+                    // Where the manifest's [bubbles] says; Settings › Bubbles
+                    // moves it, or hides it.
+                    let spec = BubbleSpec::new("Bubble").key("now").area(Area::Right).payload(weather.clone());
                     match bubble {
                         Some(id) => ctx.update_bubble(id, weather.clone()),
                         None => bubble = Some(ctx.show_bubble(spec)),

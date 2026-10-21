@@ -70,6 +70,9 @@ pub enum Kind {
     Choice,
     /// A list of `items`.
     List,
+    /// Entries by name, like the launcher's web searches: each entry has
+    /// the options in `entry`.
+    Map,
     /// Anything else, edited as TOML.
     Table,
 }
@@ -121,6 +124,23 @@ pub struct Field {
     /// the schema. The daemon keeps the ones whose program is installed.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub suggestions: Vec<Json>,
+    /// How a text is written when it's more than words: `time` is
+    /// `HH:MM`, picked with an hour and a minute menu. `x-format` in the
+    /// schema.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub format: Option<String>,
+    /// A map's options for one entry, with paths relative to the entry; a
+    /// map of plain values has one, with an empty path.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub entry: Vec<Field>,
+    /// Where a map's names come from, like `output`: `x-keys` in the
+    /// schema. The panel shows those entries whether they're set or not.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keys: Option<String>,
+    /// What an entry is set to when it's taken out but the file still
+    /// has it, like `{ enabled = false }`: `x-remove` in the schema.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remove: Option<Json>,
     /// It may be left unset, which lets the module decide.
     pub optional: bool,
     /// `null` when unset by default.
@@ -275,6 +295,14 @@ fn collect(
             source: shape.source,
             filter: shape.filter,
             suggestions: shape.suggestions,
+            format: shape.format,
+            entry: if shape.kind == Kind::Map {
+                entry_fields(shape.schema)
+            } else {
+                Vec::new()
+            },
+            keys: shape.keys,
+            remove: shape.remove,
             optional: shape.optional,
             default,
         };
@@ -283,6 +311,53 @@ fn collect(
             collect(shape.schema, file, &path, comments, defaults, out);
         }
     }
+}
+
+/// A map entry's options, from the schema of its values, with paths
+/// relative to the entry: its fields when it's a table, or itself, with an
+/// empty path, when it's a plain value.
+fn entry_fields(map: &Json) -> Vec<Field> {
+    let Some(value) = map.get("additionalProperties") else {
+        return Vec::new();
+    };
+    if value.get("properties").is_some() {
+        let mut out = Vec::new();
+        collect(
+            value,
+            "",
+            "",
+            &Comments::default(),
+            &toml::Table::new(),
+            &mut out,
+        );
+        for field in &mut out {
+            field.path = field.path.trim_start_matches('.').to_owned();
+        }
+        // Switches, like turning an entry off, before the rest, which come
+        // by name: a schema keeps no other order.
+        out.sort_by_key(|field| field.kind != Kind::Bool);
+        return out;
+    }
+    let shape = Shape::of(value);
+    vec![Field {
+        path: String::new(),
+        title: String::new(),
+        description: shape.description.unwrap_or_default(),
+        kind: shape.kind,
+        choices: shape.choices,
+        min: shape.min,
+        max: shape.max,
+        items: shape.items,
+        source: shape.source,
+        filter: shape.filter,
+        suggestions: shape.suggestions,
+        format: shape.format,
+        entry: Vec::new(),
+        keys: None,
+        remove: None,
+        optional: shape.optional,
+        default: Json::Null,
+    }]
 }
 
 /// What a property's schema says about it.
@@ -296,6 +371,9 @@ struct Shape<'a> {
     source: Option<String>,
     filter: Option<String>,
     suggestions: Vec<Json>,
+    format: Option<String>,
+    keys: Option<String>,
+    remove: Option<Json>,
     description: Option<String>,
     /// The schema without its `null`, for a group's own fields.
     schema: &'a Json,
@@ -329,6 +407,15 @@ impl<'a> Shape<'a> {
                 .and_then(Json::as_array)
                 .cloned()
                 .unwrap_or_default(),
+            format: schema
+                .get("x-format")
+                .and_then(Json::as_str)
+                .map(str::to_owned),
+            keys: schema
+                .get("x-keys")
+                .and_then(Json::as_str)
+                .map(str::to_owned),
+            remove: schema.get("x-remove").cloned(),
             description,
             schema,
         };
@@ -372,6 +459,12 @@ impl<'a> Shape<'a> {
                     .is_some_and(|extra| extra != &Json::Bool(false));
                 if schema.get("properties").is_some() && !open {
                     shape.kind = Kind::Group;
+                } else if schema.get("properties").is_none()
+                    && schema
+                        .get("additionalProperties")
+                        .is_some_and(Json::is_object)
+                {
+                    shape.kind = Kind::Map;
                 }
             }
             _ => {}
@@ -561,7 +654,7 @@ pub fn from_json(
             }
             toml::Value::Array(out)
         }
-        (Kind::Table | Kind::Group, _) => {
+        (Kind::Table | Kind::Group | Kind::Map, _) => {
             toml::Value::try_from(value).map_err(|error| error.to_string())?
         }
         _ => return Err(wrong()),
@@ -570,7 +663,7 @@ pub fn from_json(
 
 fn kind_name(kind: Kind) -> &'static str {
     match kind {
-        Kind::Group | Kind::Table => "table",
+        Kind::Group | Kind::Table | Kind::Map => "table",
         Kind::Bool => "true or false",
         Kind::Int => "whole number",
         Kind::Float => "number",
@@ -711,10 +804,15 @@ mod tests {
             (terminal.kind, terminal.items),
             (Kind::List, Some(Kind::Text))
         );
-        assert_eq!(
-            field(&fields, "config.module.clock.providers").kind,
-            Kind::Table
-        );
+        // A map of tables: each entry has the table's options.
+        let providers = field(&fields, "config.module.clock.providers");
+        assert_eq!(providers.kind, Kind::Map);
+        let entry: Vec<(&str, Kind)> = providers
+            .entry
+            .iter()
+            .map(|option| (option.path.as_str(), option.kind))
+            .collect();
+        assert_eq!(entry, [("critical", Kind::Int), ("notice", Kind::Int)]);
 
         let panels = field(&fields, "config.module.clock.panels");
         assert_eq!(panels.kind, Kind::Choice);

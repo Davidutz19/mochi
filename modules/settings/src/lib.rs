@@ -64,6 +64,13 @@ impl Module for Settings {
                 ArgSpec::string("value", "Its new value as JSON, like 2000 or \"#30d158\"")
                     .rest(),
             ),
+            ActionSpec::new("arrange", "Move, sort, show or hide modules' bubbles").arg(
+                ArgSpec::string(
+                    "placements",
+                    "As JSON, like {\"media\": {\"area\": \"left\", \"order\": 0}}",
+                )
+                .rest(),
+            ),
             ActionSpec::new(
                 "reset",
                 "Undo the change to an option, or to each option of a section, back to what the files say",
@@ -285,6 +292,8 @@ struct Chooser {
     id: u64,
     task: tokio::task::JoinHandle<()>,
     command: Option<ModuleCommand>,
+    /// For a list, what it holds now: the file chosen is added to it.
+    list: Option<Vec<Value>>,
 }
 
 /// What a file chooser got: its id, and the file or `None` when closed.
@@ -324,6 +333,13 @@ impl Panel {
                     Err(error) => Err(format!("the value isn't JSON: {error}")),
                 }
             }
+            "arrange" => match serde_json::from_str::<Value>(&arg("placements")) {
+                Ok(placements) => {
+                    self.change(ctx, "config.bubbles", SettingsOp::Arrange { placements })
+                        .await
+                }
+                Err(error) => Err(format!("the placements aren't JSON: {error}")),
+            },
             "reset" => {
                 let path = arg("path");
                 self.change(ctx, &path, SettingsOp::Reset { path: path.clone() })
@@ -487,11 +503,14 @@ impl Panel {
         if field["source"] != "file" {
             return Err(format!("{path} isn't a file"));
         }
+        let list = (field["kind"] == "list")
+            .then(|| field["value"].as_array().cloned().unwrap_or_default());
         let title = field["title"].as_str().unwrap_or("File").to_lowercase();
         let request = files::Request {
             title: format!("Choose the {title}"),
             filter: field["filter"].as_str().and_then(files::filter),
             folder: field["value"].as_str().and_then(files::folder_of),
+            directory: field["filter"] == "folder",
         };
         let done = self.chosen.clone().ok_or("the settings aren't ready")?;
         // A second Choose drops the first, whose answer goes nowhere.
@@ -514,6 +533,7 @@ impl Panel {
             id,
             task,
             command: None,
+            list,
         });
         self.error = None;
         Ok(())
@@ -527,7 +547,14 @@ impl Panel {
         let path = chooser.path;
         let result = match answer {
             Ok(Some(file)) => {
-                let value = json!(file.to_string_lossy());
+                let chosen = json!(file.to_string_lossy());
+                let value = match chooser.list {
+                    Some(mut items) => {
+                        items.push(chosen);
+                        Value::Array(items)
+                    }
+                    None => chosen,
+                };
                 let op = SettingsOp::Set {
                     path: path.clone(),
                     value,

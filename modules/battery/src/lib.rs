@@ -29,8 +29,8 @@ use std::time::Duration;
 
 use include_dir::{Dir, include_dir};
 use mochi_core::{
-    ActionSpec, ActivitySpec, Area, Assets, BoxFuture, BubbleId, BubbleSpec, ContributionSpec,
-    Module, ModuleCtx, ModuleError, ModuleEvent, Priority,
+    ActionSpec, ActivitySpec, Area, Assets, BoxFuture, BubbleHome, BubbleId, BubbleSpec,
+    ContributionSpec, Module, ModuleCtx, ModuleError, ModuleEvent, Priority,
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -103,9 +103,16 @@ impl Settings {
     }
 }
 
+/// Where its bubbles go unless the user moves them.
+const BUBBLES: BubbleHome = BubbleHome::new(Area::Right).group("status");
+
 impl Module for BatteryModule {
     fn id(&self) -> &'static str {
         "battery"
+    }
+
+    fn bubbles(&self) -> Option<BubbleHome> {
+        Some(BUBBLES)
     }
 
     fn assets(&self) -> Assets {
@@ -271,8 +278,7 @@ fn update_bubble(
             let critical = payload["critical"] == true;
             let spec = BubbleSpec::new("Bubble")
                 .key("warning")
-                .area(Area::Right)
-                .group("status")
+                .at(&BUBBLES)
                 .payload(payload);
             // Turning critical is news; a percent less isn't.
             let spec = if bubble.is_some() && critical && !*was_critical {

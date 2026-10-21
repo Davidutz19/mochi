@@ -12,7 +12,7 @@
 # "dark" or "light", or "auto" to follow the system's preference.
 # appearance = "dark"
 # The image the wallpaper preset reads, or "auto" for the one awww, swww or
-# hyprpaper shows. `mochi reload` reads it again after it changes.
+# hyprpaper shows. A new image there counts once the settings apply again.
 # wallpaper = "auto"
 
 [colors]
@@ -102,7 +102,7 @@
 # the system font without it.
 # family = ""
 # The font of the clocks, on the idle island and in the control center;
-# empty keeps `family`.
+# empty uses the font above.
 # display_family = ""
 # The type scale, in pixels: labels and fine print, everything else, titles,
 # page titles, and big numbers like a clock.

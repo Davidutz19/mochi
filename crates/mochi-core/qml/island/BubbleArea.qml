@@ -5,7 +5,12 @@ import "Lists.js" as Lists
 // island when it sits here. The island stays a child of the window; it is
 // placed over `slot`, which takes its size, so the pills move as it grows.
 //
-// With `[bubbles] stack`, the pills stack instead: the most important in
+// A merged area draws no pill backgrounds: the window draws one Span
+// around its pills, and around the island too when the area joins it.
+// Pills of modules set to `merge = false` keep their own, away from the
+// island.
+//
+// A stacked area stacks its pills instead: the most important in
 // front, the next two peeking out behind it, away from the island. A pill
 // with news comes to the front for a while. Hovering fans the stack out
 // into the row.
@@ -42,6 +47,8 @@ Row {
                 pills.push({ key: key, group: bubble.group ?? null, bubbles: [bubble] });
             }
         }
+        for (const pill of pills)
+            pill.apart = pill.bubbles.every(bubble => bubble.apart === true);
         return pills;
     }
     readonly property var pillsByKey: {
@@ -52,8 +59,53 @@ Row {
     }
     readonly property int hidden: Daemon.overflow.find(entry => entry.area === area)?.hidden ?? 0
 
+    // How it draws its bubbles: "apart", "merged", "stacked" or "island".
+    readonly property string arrangement: Daemon.arrangements[area] ?? "apart"
+    readonly property bool merging: arrangement === "merged" || arrangement === "island"
+    // Set by the window when the island's shape reaches past this area
+    // without it joining: every pill here draws on that shape.
+    property bool absorbed: false
+    // 1 while merging or absorbed, animated: the merged pills' backgrounds
+    // fade into the Span as it fades in.
+    property real merged: merging || absorbed ? 1 : 0
+    // Anything shows here.
+    readonly property bool occupied: pills.length > 0 || (hidden > 0 && !stacking)
+    readonly property bool hasMerged: merging && pills.some(pill => !pill.apart)
+    // Where the merged pills are, in the row's coordinates. The deck's
+    // layout sets them, and they slide with the pills.
+    property real mergeStart: 0
+    property real mergeEnd: 0
+    readonly property real spanStart: deck.x + mergeStart
+    readonly property real spanEnd: deck.x + mergeEnd
+    // Pills that keep their own go away from the island's side of the
+    // screen: to the left in the two left areas.
+    readonly property bool apartFirst: area === "left" || area === "center-left"
+
+    Behavior on merged {
+        NumberAnimation {
+            duration: Theme.duration(350)
+            easing.type: Easing.OutCubic
+        }
+    }
+
+    Behavior on mergeStart {
+        NumberAnimation {
+            duration: Theme.move
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: Theme.overshoot
+        }
+    }
+
+    Behavior on mergeEnd {
+        NumberAnimation {
+            duration: Theme.move
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: Theme.overshoot
+        }
+    }
+
     // Stacking: which pill is in front, and whether it's fanned out.
-    readonly property bool stacking: Daemon.bubbleStack !== null
+    readonly property bool stacking: arrangement === "stacked"
     readonly property bool fanned: !stacking || hover.hovered || folding.running
     // The pill with fresh news, in front until `news` runs out.
     property string newsKey: ""
@@ -94,6 +146,7 @@ Row {
     }
     onFannedChanged: Qt.callLater(deck.layout)
     onFrontKeyChanged: Qt.callLater(deck.layout)
+    onMergingChanged: Qt.callLater(deck.layout)
 
     Timer {
         id: news
@@ -173,15 +226,29 @@ Row {
                     items.push(item);
             }
             if (root.fanned) {
+                // Merging, the merged pills sit together, and the ones that
+                // keep their own go to the side away from the island.
+                const merged = items.filter(item => !item.apart);
+                const apart = items.filter(item => item.apart);
+                const row = !root.merging ? items : root.apartFirst ? [...apart, ...merged] : [...merged, ...apart];
                 let x = 0;
-                for (const item of items) {
+                let start = -1;
+                let end = 0;
+                for (const item of row) {
                     place(item, x);
                     item.z = 0;
                     item.stackScale = 1;
                     item.opacity = 1;
+                    if (root.merging && !item.apart) {
+                        if (start < 0)
+                            start = x;
+                        end = x + item.implicitWidth;
+                    }
                     x += item.implicitWidth + root.spacing;
                 }
                 width = Math.max(0, x - root.spacing);
+                root.mergeStart = Math.max(0, start);
+                root.mergeEnd = start < 0 ? 0 : end;
                 return;
             }
             const front = items.find(item => item.key === root.frontKey) ?? items[0];
@@ -237,6 +304,8 @@ Row {
                 property bool placed: false
                 // The last bubbles it had, shown while it leaves.
                 property var held: []
+                // Keeps its own background in a merged area.
+                readonly property bool apart: root.merging && bubbles.length > 0 && bubbles.every(bubble => bubble.apart === true)
 
                 bubbles: root.pillsByKey[key] ?? held
                 onBubblesChanged: {
@@ -261,9 +330,10 @@ Row {
                 y: root.atBottom ? root.height - height : 0
                 attached: root.attached
                 sideAttached: root.touchesSide(pill)
-                flat: root.flat
+                flat: Math.max(root.flat, pill.apart && !root.absorbed ? 0 : root.merged)
                 atBottom: root.atBottom
                 atRight: root.area === "right"
+                onApartChanged: Qt.callLater(deck.layout)
                 transform: Scale {
                     origin.x: pill.width / 2
                     origin.y: pill.height / 2

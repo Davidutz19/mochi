@@ -12,5 +12,5 @@
 # Show workspaces being created or removed.
 # changes = true
 # Names for the monitors, shown when two or more are connected; without one
-# the connector name shows. Like: labels = { DP-3 = "Main", HDMI-A-1 = "Side" }
+# the connector's name, like DP-3, shows.
 # labels = {}

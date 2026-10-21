@@ -57,6 +57,7 @@ struct Settings {
     focus: bool,
     urgent: bool,
     changes: bool,
+    #[schemars(extend("x-keys" = "output", "x-remove" = ""))]
     labels: BTreeMap<String, String>,
 }
 

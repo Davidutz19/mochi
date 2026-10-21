@@ -9,6 +9,3 @@
 # units = "metric"
 # How often to fetch, in minutes.
 # refresh_minutes = 20
-# A bubble with the temperature, in this area: left, center-left,
-# center-right or right. Unset, there's none.
-# bubble = "right"

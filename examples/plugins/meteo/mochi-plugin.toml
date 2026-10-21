@@ -19,6 +19,9 @@ build = "cargo build --release --locked --target-dir target && install -Dm755 ta
 [release]
 asset = "meteo-{version}-{arch}-linux.tar.gz"
 
+[bubbles]
+area = "right"
+
 [[actions]]
 name = "show"
 description = "Show the forecast on the island"
@@ -54,6 +57,3 @@ choices = ["metric", "imperial"]
 min = 5
 max = 120
 
-[settings.bubble]
-choices = ["left", "center-left", "center-right", "right"]
-optional = true

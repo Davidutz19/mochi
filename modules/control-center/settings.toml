@@ -6,15 +6,13 @@
 # to that, and what is taller scrolls. It never grows past the screen.
 # width = 860
 # height = 480
-# The home's cards in this order, as module/id like "network/status"; the
-# ones not listed follow. The pencil in the control center's navbar
-# arranges them.
+# The home's cards in this order; the ones not listed follow. The pencil in
+# the control center's navbar arranges them too.
 # order = []
-# Cards to leave off the home, the same way.
+# Cards to leave off the home.
 # hidden = []
-# The navbar's pages after Home in this order, as module/id like
-# "network/page"; the ones not listed follow. The pencil arranges them too.
+# The navbar's pages after Home in this order; the ones not listed follow.
+# The pencil arranges them too.
 # pages = []
-# Pages to leave out of the navbar, the same way. They still open with
-# `mochi ipc control-center open <page>` and from their cards.
+# Pages to leave out of the navbar. They still open from their cards.
 # hidden_pages = []

@@ -294,7 +294,13 @@ fn looks() -> Vec<Step> {
             "Stacked bubbles",
             "bubble_chart",
             "Bubbles can stack, the most important in front; hovering fans them out. Settings › Bubbles.",
-            vec![vec![("config.bubbles.stack", json!(true))]],
+            vec![vec![
+                ("config.bubbles.left", json!("stacked")),
+                ("config.bubbles.center_left", json!("stacked")),
+                ("config.bubbles.center", json!("stacked")),
+                ("config.bubbles.center_right", json!("stacked")),
+                ("config.bubbles.right", json!("stacked")),
+            ]],
         ),
     ]
 }

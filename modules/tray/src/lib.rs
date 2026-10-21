@@ -35,8 +35,9 @@ use std::path::PathBuf;
 
 use include_dir::{Dir, include_dir};
 use mochi_core::{
-    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Assets, BoxFuture, BubbleId, BubbleSpec,
-    ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError, ModuleEvent, Priority,
+    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Assets, BoxFuture, BubbleHome, BubbleId,
+    BubbleSpec, ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError, ModuleEvent,
+    Priority,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -133,9 +134,16 @@ impl Settings {
     }
 }
 
+/// Where its bubbles go unless the user moves them.
+const BUBBLES: BubbleHome = BubbleHome::new(Area::Right);
+
 impl Module for Tray {
     fn id(&self) -> &'static str {
         "tray"
+    }
+
+    fn bubbles(&self) -> Option<BubbleHome> {
+        Some(BUBBLES)
     }
 
     fn assets(&self) -> Assets {
@@ -389,7 +397,7 @@ impl State {
         let drawer = (!shown.is_empty()).then(|| {
             let spec = BubbleSpec::new("Drawer")
                 .key("drawer")
-                .area(Area::Right)
+                .at(&BUBBLES)
                 .payload(json!({ "count": shown.len(), "attention": attention }));
             if news { spec.news() } else { spec }
         });
@@ -409,7 +417,7 @@ impl State {
             }
             let spec = BubbleSpec::new("Pin")
                 .key(format!("pin-{key}"))
-                .area(Area::Right)
+                .at(&BUBBLES)
                 .payload(item);
             pins.insert(key, ctx.show_bubble(spec));
         }

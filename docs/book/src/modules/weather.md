@@ -12,6 +12,7 @@ Open-Meteo gets the place's name when it's looked up, then its coordinates with 
 |---|---|
 | `refresh` | Fetches the forecast now |
 | `status` | Prints the weather now and today's low and high, like `Lyon: 15°C, overcast, feels like 13°C; today 10°C to 16°C. Updated 9 minutes ago` |
+| `places <query>` | Looks up places by name with Open-Meteo, for the settings' place search, which lists what it found |
 
 ## In the control center
 

@@ -75,7 +75,15 @@ struct Settings {
     terminal: Vec<String>,
     max_results: usize,
     layout: Layout,
+    /// Where results come from: apps, the calculator, commands, files, and
+    /// what other modules offer. Add one to change it, or name a new one to
+    /// add a script of your own.
+    #[schemars(extend("x-keys" = "launcher-provider", "x-remove" = {"enabled": false}))]
     providers: BTreeMap<String, ProviderSettings>,
+    /// Web searches, by the word after "!" in a search: "!w rust" searches
+    /// DuckDuckGo. Built in are w, g, gh, yt, nix and wiki; one of those
+    /// names here changes it.
+    #[schemars(extend("x-remove" = {"url": ""}))]
     engines: BTreeMap<String, Engine>,
     files: FilesSettings,
 }

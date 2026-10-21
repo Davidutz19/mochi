@@ -32,8 +32,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use include_dir::{Dir, include_dir};
 use mochi_core::{
-    ActionSpec, Assets, BoxFuture, ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError,
-    ModuleEvent,
+    ActionSpec, ArgSpec, Assets, BoxFuture, ContributionSpec, Module, ModuleCommand, ModuleCtx,
+    ModuleError, ModuleEvent,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -74,9 +74,10 @@ pub struct Weather;
 struct Settings {
     /// A city or a town, like "Lyon", or "Lyon, France" for the one in that
     /// country or region. It's looked up once, with Open-Meteo.
+    #[schemars(extend("x-source" = "place"))]
     place: String,
-    /// Where you are instead, with `longitude`, which skips the lookup:
-    /// north is positive. `place` then only names it.
+    /// Where you are, instead of looking a place up: north is positive. The
+    /// place then only names it.
     #[schemars(range(min = -90, max = 90))]
     latitude: Option<f64>,
     /// East is positive.
@@ -351,6 +352,8 @@ impl Module for Weather {
         vec![
             ActionSpec::new("refresh", "Fetch the forecast now"),
             ActionSpec::new("status", "Print the weather now and today's"),
+            ActionSpec::new("places", "Look up places by name, for the settings' search")
+                .arg(ArgSpec::string("query", "A place's name, or the start of it").rest()),
         ]
     }
 
@@ -449,6 +452,11 @@ impl Module for Weather {
             let (done, mut finished) = tokio::sync::mpsc::unbounded_channel();
             let mut weather = State::new(settings, Saved::path(), now());
             let mut published = Value::Null;
+            // The settings' place search: what was asked last, and what
+            // Open-Meteo found for it.
+            let (found, mut answers) = tokio::sync::mpsc::unbounded_channel();
+            let mut asked = String::new();
+            let mut places = Value::Array(Vec::new());
             loop {
                 if let Some(job) = weather.begin(now()) {
                     let fetcher = fetcher.clone();
@@ -460,7 +468,8 @@ impl Module for Weather {
                 }
                 // The hours that went by leave the state too, so it's
                 // compared rather than sent on every tick.
-                let state = weather.state(now());
+                let mut state = weather.state(now());
+                state["places"] = places.clone();
                 if state != published {
                     ctx.publish_state(state.clone());
                     published = state;
@@ -468,6 +477,24 @@ impl Module for Weather {
                 tokio::select! {
                     event = ctx.next_event() => match event {
                         None => return Ok(()),
+                        Some(ModuleEvent::Command(command)) if command.action == "places" => {
+                            asked = command.args.str("query").unwrap_or_default().trim().to_owned();
+                            command.reply(Ok(()));
+                            places = Value::Array(Vec::new());
+                            // Two letters at least: one finds half the world.
+                            if asked.chars().count() >= 2 {
+                                let fetcher = fetcher.clone();
+                                let found = found.clone();
+                                let query = asked.clone();
+                                tokio::spawn(async move {
+                                    let listed = fetcher
+                                        .get(meteo::geocoding_url(&query))
+                                        .await
+                                        .and_then(|json| meteo::places(&json));
+                                    let _ = found.send((query, listed));
+                                });
+                            }
+                        }
                         Some(ModuleEvent::Command(command)) => weather.command(command, now()),
                         Some(ModuleEvent::Reconfigured(table)) => match Settings::load(&table) {
                             Ok(settings) => weather.reconfigure(settings, now()),
@@ -478,6 +505,23 @@ impl Module for Weather {
                     Some((generation, result)) = finished.recv() => {
                         weather.finish(generation, result, now());
                     }
+                    // An answer to an older query is no use any more.
+                    Some((query, listed)) = answers.recv() => if query == asked {
+                        places = match listed {
+                            Ok(listed) => listed
+                                .iter()
+                                .map(|place| json!({
+                                    "value": place.query(),
+                                    "label": place.name,
+                                    "detail": place.whereabouts(),
+                                }))
+                                .collect(),
+                            Err(error) => {
+                                tracing::info!(%error, query, "no places found");
+                                Value::Array(Vec::new())
+                            }
+                        };
+                    },
                     () = tokio::time::sleep(weather.wait(now())) => {}
                 }
             }

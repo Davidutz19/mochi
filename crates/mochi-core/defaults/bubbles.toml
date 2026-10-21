@@ -1,22 +1,41 @@
 # Bubbles: small round status items next to the island, like the music
 # playing or missed notifications. The edge has five areas, from left to
-# right: left, center-left, center, center-right and right.
+# right: left, center-left, center, center-right and right. Each area lays
+# its bubbles apart, merges them into one shape, stacks them, or merges
+# them into the island's shape.
 [bubbles]
 # How many bubbles fit in one area; the rest hide behind a "+N".
 # max_per_area = 4
-# Stack each area's bubbles into one: the most important in front, the
-# others peeking behind it. Hovering fans them out side by side. A bubble
-# that appears, or has news like a new missed notification, comes to the
-# front for news_ms milliseconds, then goes back.
-# stack = false
+
+# How each area draws its bubbles. "apart" gives each bubble, or each
+# group, a pill of its own. "merged" draws one shape around all of them,
+# each still taking its own clicks. "stacked" shows the most important in
+# front with the others peeking behind it, and fans them out on hover.
+# "island" merges them into the island's shape: it reaches out to them
+# across the gap, even to the screen's sides, and takes in the bubbles on
+# the way. In bar mode, the bar already draws one shape.
+
+# The area against the left side of the screen.
+# left = "apart"
+# The area just left of the center.
+# center_left = "apart"
+# The middle of the edge, where the island sits unless the theme moves it.
+# center = "apart"
+# The area just right of the center.
+# center_right = "apart"
+# The area against the right side of the screen.
+# right = "apart"
+
+# How long a bubble that appears, or has news like a new missed
+# notification, stays in front of its stack, in milliseconds.
 # news_ms = 4000
 # How long the pointer rests on a bubble before a tooltip says more about
 # it, in milliseconds: the track playing, the network, who uses the
 # microphone. 0 shows none.
 # tooltip_ms = 600
 
-# Each module puts its bubbles where it thinks best. A [bubbles.<module>]
-# section moves them, for example:
+# Each module puts its bubbles where it thinks best. Settings › Bubbles moves
+# them by dragging, and writes a [bubbles.<module>] section like this one:
 #
 #   [bubbles.media]
 #   area = "left"       # one of the five areas
@@ -24,3 +43,4 @@
 #   order = 1           # lower goes further left
 #   wide = true         # a pill with text, for modules that have one
 #   show = false        # no bubbles from this module at all
+#   merge = false       # its own pill beside a merged area's shape

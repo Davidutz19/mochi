@@ -11,7 +11,6 @@
 //!
 //! ```toml
 //! [module.bluetooth]
-//! bubble = true      # a bubble while a device is connected
 //! notices = true     # a notice when a device connects or disconnects
 //! scan_seconds = 30  # how long a scan looks for devices
 //! ```
@@ -25,9 +24,9 @@ use std::time::{Duration, Instant};
 
 use include_dir::{Dir, include_dir};
 use mochi_core::{
-    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Assets, BoxFuture, BubbleId, BubbleSpec,
-    CallError, ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError, ModuleEvent,
-    Priority,
+    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Assets, BoxFuture, BubbleHome, BubbleId,
+    BubbleSpec, CallError, ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError,
+    ModuleEvent, Priority,
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -47,7 +46,6 @@ pub struct Bluetooth;
 #[derive(Debug, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 struct Settings {
-    bubble: bool,
     notices: bool,
     scan_seconds: u64,
 }
@@ -55,16 +53,22 @@ struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            bubble: true,
             notices: true,
             scan_seconds: 30,
         }
     }
 }
 
+/// Where its bubbles go unless the user moves them.
+const BUBBLES: BubbleHome = BubbleHome::new(Area::Right).group("status");
+
 impl Module for Bluetooth {
     fn id(&self) -> &'static str {
         "bluetooth"
+    }
+
+    fn bubbles(&self) -> Option<BubbleHome> {
+        Some(BUBBLES)
     }
 
     fn assets(&self) -> Assets {
@@ -228,11 +232,7 @@ impl State {
             self.snapshot.as_ref(),
             self.scan_ends.is_some(),
         ));
-        let payload = self
-            .snapshot
-            .as_ref()
-            .filter(|_| self.settings.bubble)
-            .and_then(model::bubble);
+        let payload = self.snapshot.as_ref().and_then(model::bubble);
         match payload {
             Some(payload) => {
                 // Another device connected or gone is news; a battery
@@ -242,8 +242,7 @@ impl State {
                 self.shown_devices = Some(devices);
                 let spec = BubbleSpec::new("Bubble")
                     .key("connected")
-                    .area(Area::Right)
-                    .group("status")
+                    .at(&BUBBLES)
                     .payload(payload);
                 let spec = if news { spec.news() } else { spec };
                 self.bubble = Some(ctx.show_bubble(spec));

@@ -30,7 +30,7 @@ use std::time::{Duration, Instant};
 
 use include_dir::{Dir, include_dir};
 use mochi_core::{
-    ActionSpec, ActivitySpec, Area, ArgSpec, Assets, BoxFuture, BubbleId, BubbleSpec,
+    ActionSpec, ActivitySpec, Area, ArgSpec, Assets, BoxFuture, BubbleHome, BubbleId, BubbleSpec,
     ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError, ModuleEvent, Priority,
 };
 use serde::Deserialize;
@@ -213,9 +213,16 @@ impl Metric {
     }
 }
 
+/// Where its bubbles go unless the user moves them.
+const BUBBLES: BubbleHome = BubbleHome::new(Area::Right).group("status");
+
 impl Module for Performance {
     fn id(&self) -> &'static str {
         "performance"
+    }
+
+    fn bubbles(&self) -> Option<BubbleHome> {
+        Some(BUBBLES)
     }
 
     fn assets(&self) -> Assets {
@@ -847,8 +854,7 @@ impl State {
             self.critical_shown = labels;
             let spec = BubbleSpec::new("Bubble")
                 .key("critical")
-                .area(Area::Right)
-                .group("status")
+                .at(&BUBBLES)
                 .payload(json!({ "critical": critical }));
             let spec = if news { spec.news() } else { spec };
             self.bubble = Some(ctx.show_bubble(spec));

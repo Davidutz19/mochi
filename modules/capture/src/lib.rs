@@ -36,9 +36,9 @@ use include_dir::{Dir, include_dir};
 use mochi_core::compositor::Window;
 use mochi_core::quality::{self, Resolution};
 use mochi_core::{
-    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Args, Assets, BoxFuture, BubbleId,
-    BubbleSpec, ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError, ModuleEvent,
-    Priority,
+    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Args, Assets, BoxFuture, BubbleHome,
+    BubbleId, BubbleSpec, ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError,
+    ModuleEvent, Priority,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -66,9 +66,23 @@ pub struct Capture;
 #[derive(Debug, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 struct Settings {
+    #[schemars(extend("x-source" = "file", "x-filter" = "folder"))]
     screenshots: String,
+    #[schemars(extend("x-source" = "file", "x-filter" = "folder"))]
     recordings: String,
+    #[schemars(extend("x-suggest" = [
+        {"value": "Screenshot from %Y-%m-%d %H-%M-%S", "label": "Screenshot from 2026-10-20 14-05-09"},
+        {"value": "Screenshot %Y-%m-%d at %H.%M.%S", "label": "Screenshot 2026-10-20 at 14.05.09"},
+        {"value": "%Y%m%d-%H%M%S", "label": "20261020-140509"},
+        {"value": "%Y-%m-%d_%H-%M-%S", "label": "2026-10-20_14-05-09"}
+    ]))]
     screenshot_name: String,
+    #[schemars(extend("x-suggest" = [
+        {"value": "Recording from %Y-%m-%d %H-%M-%S", "label": "Recording from 2026-10-20 14-05-09"},
+        {"value": "Recording %Y-%m-%d at %H.%M.%S", "label": "Recording 2026-10-20 at 14.05.09"},
+        {"value": "%Y%m%d-%H%M%S", "label": "20261020-140509"},
+        {"value": "%Y-%m-%d_%H-%M-%S", "label": "2026-10-20_14-05-09"}
+    ]))]
     recording_name: String,
     #[schemars(extend("x-suggest" = [["satty", "--filename"], ["swappy", "-f"], ["gimp"], ["krita"]]))]
     editor: Vec<String>,
@@ -175,9 +189,16 @@ enum Pick {
     All,
 }
 
+/// Where its bubbles go unless the user moves them.
+const BUBBLES: BubbleHome = BubbleHome::new(Area::CenterRight).order(-10).wide();
+
 impl Module for Capture {
     fn id(&self) -> &'static str {
         "capture"
+    }
+
+    fn bubbles(&self) -> Option<BubbleHome> {
+        Some(BUBBLES)
     }
 
     fn assets(&self) -> Assets {
@@ -1175,8 +1196,7 @@ impl State {
                 BubbleSpec::new("Recording")
                     .wide("RecordingWide")
                     .key("recording")
-                    .area(Area::CenterRight)
-                    .order(-10)
+                    .at(&BUBBLES)
                     .payload(live.payload(&screens(ctx))),
             ),
         );

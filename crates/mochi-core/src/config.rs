@@ -8,7 +8,7 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::{env, fs, io};
 
-use mochi_protocol::Theme;
+use mochi_protocol::{Area, AreaArrangement, Arrangement, Theme};
 use schemars::JsonSchema;
 use serde::Deserialize;
 
@@ -201,11 +201,13 @@ pub enum Panels {
     All,
 }
 
-/// `[bubbles]`: how many fit in an area, and where each module's bubbles go.
+/// `[bubbles]`: how many fit in an area, how each area draws them, and
+/// where each module's bubbles go.
 ///
 /// ```toml
 /// [bubbles]
 /// max_per_area = 4
+/// right = "island"
 ///
 /// [bubbles.media]     # any module id
 /// area = "left"
@@ -219,8 +221,16 @@ pub struct BubblesConfig {
     /// Bubbles shown per area; the rest are counted instead.
     #[schemars(range(min = 1, max = 12))]
     pub max_per_area: usize,
-    /// Each area stacks its bubbles into one, the most important in front.
-    pub stack: bool,
+    /// How the area against the left side draws its bubbles.
+    pub left: Arrangement,
+    /// How the area just left of the center draws its bubbles.
+    pub center_left: Arrangement,
+    /// How the middle area draws its bubbles.
+    pub center: Arrangement,
+    /// How the area just right of the center draws its bubbles.
+    pub center_right: Arrangement,
+    /// How the area against the right side draws its bubbles.
+    pub right: Arrangement,
     /// How long a bubble with news stays in front of its stack.
     #[schemars(range(min = 0, max = 15000))]
     pub news_ms: u64,
@@ -237,7 +247,11 @@ impl Default for BubblesConfig {
     fn default() -> Self {
         Self {
             max_per_area: 4,
-            stack: false,
+            left: Arrangement::Apart,
+            center_left: Arrangement::Apart,
+            center: Arrangement::Apart,
+            center_right: Arrangement::Apart,
+            right: Arrangement::Apart,
             news_ms: 4000,
             tooltip_ms: 600,
             modules: BTreeMap::new(),
@@ -246,9 +260,35 @@ impl Default for BubblesConfig {
 }
 
 impl BubblesConfig {
-    /// What the UI needs to stack, when it does.
+    /// How `area` draws its bubbles.
+    pub fn arrangement(&self, area: Area) -> Arrangement {
+        match area {
+            Area::Left => self.left,
+            Area::CenterLeft => self.center_left,
+            Area::Center => self.center,
+            Area::CenterRight => self.center_right,
+            Area::Right => self.right,
+        }
+    }
+
+    /// Every area that doesn't lay its bubbles apart.
+    pub fn arrangements(&self) -> Vec<AreaArrangement> {
+        Area::ALL
+            .into_iter()
+            .map(|area| AreaArrangement {
+                area,
+                arrangement: self.arrangement(area),
+            })
+            .filter(|entry| entry.arrangement != Arrangement::Apart)
+            .collect()
+    }
+
+    /// What the UI needs to stack, when any area does.
     pub fn stacking(&self) -> Option<mochi_protocol::Stacking> {
-        self.stack.then_some(mochi_protocol::Stacking {
+        let stacks = Area::ALL
+            .into_iter()
+            .any(|area| self.arrangement(area) == Arrangement::Stacked);
+        stacks.then_some(mochi_protocol::Stacking {
             news_ms: self.news_ms,
         })
     }
@@ -318,7 +358,7 @@ impl Config {
     pub fn parse(text: &str, path: &Path) -> Result<Self, ConfigError> {
         let invalid = |error: toml::de::Error| ConfigError::invalid(path, error.to_string());
         let mut table: toml::Table = toml::from_str(text).map_err(invalid)?;
-        if migrate_module_ids(&mut table).is_empty() {
+        if migrate(&mut table).is_empty() {
             // Straight from the text, for errors that name the line.
             return toml::from_str(text).map_err(invalid);
         }
@@ -486,6 +526,92 @@ pub fn read_table(path: &Path) -> Result<toml::Table, ConfigError> {
         }
         None => Ok(toml::Table::new()),
     }
+}
+
+/// Brings an older `config.toml` table up to date: renamed modules, and
+/// `[bubbles] stack`. Returns a note for each thing it changed, for a
+/// warning.
+pub fn migrate(table: &mut toml::Table) -> Vec<String> {
+    let mut notes = migrate_module_ids(table);
+    notes.extend(migrate_bubble_stack(table));
+    notes.extend(migrate_bubble_switches(table));
+    notes.extend(migrate_timer_bubbles_off(table));
+    notes
+}
+
+/// The timer's `timer_bubbles = "off"` hid its custom timers' bubbles,
+/// apart from `[bubbles.timer] show`. It becomes `show = false`, which
+/// hides the focus session's bubble too.
+fn migrate_timer_bubbles_off(table: &mut toml::Table) -> Option<String> {
+    let timer = table
+        .get_mut("module")
+        .and_then(|modules| modules.get_mut("timer"))
+        .and_then(toml::Value::as_table_mut)?;
+    if timer.get("timer_bubbles").and_then(toml::Value::as_str) != Some("off") {
+        return None;
+    }
+    timer.remove("timer_bubbles");
+    hide_bubbles(table, "timer");
+    Some("[module.timer] timer_bubbles = \"off\" is now [bubbles.timer] show = false".to_owned())
+}
+
+/// `[bubbles.<module>] show = false`, unless it says otherwise already.
+fn hide_bubbles(table: &mut toml::Table, module: &str) {
+    let bubbles = table
+        .entry("bubbles")
+        .or_insert_with(|| toml::Value::Table(toml::Table::new()));
+    if let toml::Value::Table(bubbles) = bubbles
+        && let toml::Value::Table(placement) = bubbles
+            .entry(module)
+            .or_insert_with(|| toml::Value::Table(toml::Table::new()))
+    {
+        placement
+            .entry("show")
+            .or_insert(toml::Value::Boolean(false));
+    }
+}
+
+/// Bluetooth and network had a `bubble = false` of their own, apart from
+/// `[bubbles.<module>] show`. It becomes `show = false`, unless that says
+/// otherwise already.
+fn migrate_bubble_switches(table: &mut toml::Table) -> Vec<String> {
+    let mut notes = Vec::new();
+    for module in ["bluetooth", "network"] {
+        let Some(toml::Value::Table(settings)) = table
+            .get_mut("module")
+            .and_then(|modules| modules.get_mut(module))
+        else {
+            continue;
+        };
+        let Some(bubble) = settings.remove("bubble") else {
+            continue;
+        };
+        if bubble.as_bool() == Some(false) {
+            hide_bubbles(table, module);
+        }
+        notes.push(format!(
+            "[module.{module}] bubble is now [bubbles.{module}] show"
+        ));
+    }
+    notes
+}
+
+/// Before each area had an arrangement, `[bubbles] stack = true` stacked
+/// every area. It becomes "stacked" for each area the table leaves out;
+/// the ones it names keep theirs.
+fn migrate_bubble_stack(table: &mut toml::Table) -> Option<String> {
+    let Some(toml::Value::Table(bubbles)) = table.get_mut("bubbles") else {
+        return None;
+    };
+    let stack = bubbles.remove("stack")?;
+    if stack.as_bool() == Some(true) {
+        for area in ["left", "center_left", "center", "center_right", "right"] {
+            bubbles
+                .entry(area)
+                .or_insert_with(|| toml::Value::String("stacked".to_owned()));
+        }
+    }
+    Some("[bubbles] stack is now a setting for each area, like `right = \"stacked\"`".to_owned())
 }
 
 /// Moves the old ids of renamed modules in a `config.toml` table to their
@@ -658,6 +784,35 @@ mod tests {
     }
 
     #[test]
+    fn the_old_stack_fills_in_only_the_areas_left_out() {
+        let config = Config::parse(
+            "[bubbles]\nstack = true\nright = \"apart\"\ncenter = \"island\"",
+            path(),
+        )
+        .unwrap();
+        let bubbles = &config.bubbles;
+        assert_eq!(bubbles.left, Arrangement::Stacked);
+        assert_eq!(bubbles.center, Arrangement::Island);
+        assert_eq!(bubbles.right, Arrangement::Apart);
+        assert!(bubbles.modules.is_empty());
+    }
+
+    #[test]
+    fn the_old_bubble_switch_hides_through_the_placement() {
+        let config = Config::parse(
+            "[module.network]\nbubble = false\nnotices = false\n\n[module.bluetooth]\nbubble = true\n\n[module.timer]\ntimer_bubbles = \"off\"",
+            path(),
+        )
+        .unwrap();
+        assert_eq!(config.bubbles.modules["network"].show, Some(false));
+        assert!(!config.bubbles.modules.contains_key("bluetooth"));
+        assert!(!config.settings("network").contains_key("bubble"));
+        assert!(!config.settings("bluetooth").contains_key("bubble"));
+        assert_eq!(config.bubbles.modules["timer"].show, Some(false));
+        assert!(!config.settings("timer").contains_key("timer_bubbles"));
+    }
+
+    #[test]
     fn bubble_placements_parse_and_name_known_modules() {
         let config = Config::parse(
             r#"
@@ -677,7 +832,7 @@ mod tests {
         assert_eq!(
             config.bubbles.modules["osd"],
             Placement {
-                area: Some(mochi_protocol::Area::Left),
+                area: Some(Area::Left),
                 group: Some("status".into()),
                 ..Placement::default()
             }

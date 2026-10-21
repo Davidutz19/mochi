@@ -20,7 +20,6 @@ struct Settings {
     break_minutes: u64,
     auto_break: bool,
     pause_media: bool,
-    area: Area,
 }
 
 impl Default for Settings {
@@ -30,7 +29,6 @@ impl Default for Settings {
             break_minutes: 5,
             auto_break: true,
             pause_media: false,
-            area: Area::CenterRight,
         }
     }
 }
@@ -149,7 +147,8 @@ impl Pomodoro {
         let bubble = ctx.show_bubble(
             BubbleSpec::new("Bubble")
                 .key("timer")
-                .area(self.settings.area)
+                // Where the manifest's [bubbles] says; Settings › Bubbles moves it.
+                .area(Area::CenterRight)
                 .priority(Priority::LOW)
                 .payload(self.bubble_payload(phase, total, total, false))
                 .news(),

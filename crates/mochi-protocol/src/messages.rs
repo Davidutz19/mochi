@@ -3,7 +3,9 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{Area, Bubble, BubbleId, Contribution, ModuleActions, Overflow, Stacking, Theme};
+use crate::{
+    Area, AreaArrangement, Bubble, BubbleId, Contribution, ModuleActions, Overflow, Stacking, Theme,
+};
 
 /// Identifies one activity for its whole life, across the daemon and the UI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -129,9 +131,13 @@ pub enum DaemonMessage {
         bubbles: Vec<Bubble>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         overflow: Vec<Overflow>,
-        /// Each area stacks its bubbles into one, when set.
+        /// How stacked areas behave, when any area stacks.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         stack: Option<Stacking>,
+        /// The areas that merge or stack their bubbles; the others lay them
+        /// apart.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        arrangements: Vec<AreaArrangement>,
         /// How long the pointer rests on a bubble before its tooltip shows;
         /// none means never.
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -505,12 +511,17 @@ mod tests {
                 priority: 50,
                 news: 3,
                 tooltip: Some("Song · Artist".into()),
+                apart: true,
             }],
             overflow: vec![Overflow {
                 area: Area::Right,
                 hidden: 2,
             }],
             stack: Some(Stacking { news_ms: 4000 }),
+            arrangements: vec![AreaArrangement {
+                area: Area::CenterLeft,
+                arrangement: crate::Arrangement::Island,
+            }],
             tooltip_ms: Some(600),
         });
         round_trip_daemon(DaemonMessage::Theme {

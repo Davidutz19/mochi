@@ -54,9 +54,9 @@ use std::time::{Duration, SystemTime};
 use include_dir::{Dir, include_dir};
 use mochi_core::sound;
 use mochi_core::{
-    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Assets, BoxFuture, BubbleId, BubbleSpec,
-    ContributionSpec, EndReason, Module, ModuleCommand, ModuleCtx, ModuleError, ModuleEvent,
-    Priority, SamePriority,
+    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Assets, BoxFuture, BubbleHome, BubbleId,
+    BubbleSpec, ContributionSpec, EndReason, Module, ModuleCommand, ModuleCtx, ModuleError,
+    ModuleEvent, Priority, SamePriority,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -85,6 +85,7 @@ struct Settings {
     save_history: bool,
     markdown: bool,
     sounds: bool,
+    #[schemars(extend("x-suggest" = [["pw-play"], ["paplay"], ["mpv", "--no-video", "--really-quiet"], ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet"]]))]
     sound_command: Vec<String>,
     #[schemars(extend("x-source" = "sound-theme"))]
     sound_theme: String,
@@ -114,9 +115,16 @@ impl Default for Settings {
     }
 }
 
+/// Where its bubbles go unless the user moves them.
+const BUBBLES: BubbleHome = BubbleHome::new(Area::CenterRight).group(GROUP);
+
 impl Module for Notifications {
     fn id(&self) -> &'static str {
         "notifications"
+    }
+
+    fn bubbles(&self) -> Option<BubbleHome> {
+        Some(BUBBLES)
     }
 
     fn assets(&self) -> Assets {
@@ -594,8 +602,7 @@ fn audible(new: bool, effects: &[Effect], id: u32, dnd: bool) -> bool {
 fn bubble(view: &str, key: &str) -> BubbleSpec {
     BubbleSpec::new(view)
         .key(key)
-        .area(Area::CenterRight)
-        .group(GROUP)
+        .at(&BUBBLES)
         .priority(Priority::LOW)
 }
 

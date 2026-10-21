@@ -85,8 +85,11 @@ Singleton {
     property var bubbles: []
     // [{area, hidden}] for areas with more bubbles than fit.
     property var overflow: []
-    // {news_ms} when each area stacks its bubbles, or null.
+    // {news_ms} when any area stacks its bubbles, or null.
     property var bubbleStack: null
+    // How each area draws its bubbles, by area: "merged", "stacked" or
+    // "island". Areas left out lay them apart.
+    property var arrangements: ({})
     // How long the pointer rests on a bubble before its tooltip shows; 0
     // for never.
     property int bubbleTooltipMs: 0
@@ -235,11 +238,17 @@ Singleton {
                 break;
             }
         case "bubbles":
-            bubbles = message.bubbles;
-            overflow = message.overflow ?? [];
-            bubbleStack = message.stack ?? null;
-            bubbleTooltipMs = message.tooltip_ms ?? 0;
-            break;
+            {
+                bubbles = message.bubbles;
+                overflow = message.overflow ?? [];
+                bubbleStack = message.stack ?? null;
+                const byArea = {};
+                for (const entry of message.arrangements ?? [])
+                    byArea[entry.area] = entry.arrangement;
+                arrangements = byArea;
+                bubbleTooltipMs = message.tooltip_ms ?? 0;
+                break;
+            }
         case "theme":
             theme = message.theme;
             break;

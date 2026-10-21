@@ -53,6 +53,7 @@ const CHECK: Duration = Duration::from_secs(1);
 #[serde(default, deny_unknown_fields)]
 pub struct FilesSettings {
     /// Where to look; empty for the home folder.
+    #[schemars(extend("x-source" = "file", "x-filter" = "folder"))]
     pub roots: Vec<String>,
     /// Folder and file names left out, besides hidden ones.
     pub ignore: Vec<String>,

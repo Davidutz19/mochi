@@ -190,6 +190,64 @@ pub fn find_place(json: &str, query: &str) -> Result<Place, String> {
     })
 }
 
+/// Every place in a geocoding answer, as the settings' search lists them.
+pub fn places(json: &str) -> Result<Vec<Place>, String> {
+    #[derive(Deserialize)]
+    struct Answer {
+        #[serde(default)]
+        results: Vec<Found>,
+    }
+    #[derive(Deserialize)]
+    struct Found {
+        name: String,
+        latitude: f64,
+        longitude: f64,
+        #[serde(default)]
+        country: String,
+        #[serde(default)]
+        admin1: String,
+    }
+    let answer: Answer = serde_json::from_str(json)
+        .map_err(|error| format!("Open-Meteo's lookup isn't what it should be: {error}"))?;
+    Ok(answer
+        .results
+        .into_iter()
+        .map(|found| Place {
+            name: found.name,
+            region: found.admin1,
+            country: found.country,
+            latitude: found.latitude,
+            longitude: found.longitude,
+        })
+        .collect())
+}
+
+impl Place {
+    /// What `place` is set to, to find this one again: its name and its
+    /// region, or its country without one, which [`find_place`] matches.
+    pub fn query(&self) -> String {
+        let within = if self.region.is_empty() {
+            &self.country
+        } else {
+            &self.region
+        };
+        if within.is_empty() {
+            self.name.clone()
+        } else {
+            format!("{}, {within}", self.name)
+        }
+    }
+
+    /// Where it is, for the search's list: region and country.
+    pub fn whereabouts(&self) -> String {
+        [self.region.as_str(), self.country.as_str()]
+            .into_iter()
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+}
+
 /// The name to look up in a query like "Lyon, France".
 pub fn looked_up(query: &str) -> &str {
     query.split(',').next().unwrap_or_default().trim()
@@ -478,6 +536,23 @@ mod tests {
         assert_eq!(error, "Open-Meteo knows no place called \"Lyon, Japan\"");
         // Open-Meteo leaves `results` out when nothing matches.
         assert!(find_place(r#"{"generationtime_ms": 0.7}"#, "Nowhere").is_err());
+    }
+
+    #[test]
+    fn each_place_listed_is_found_again_by_what_it_sets() {
+        let listed = places(GEOCODING_JSON).unwrap();
+        assert!(listed.len() > 1);
+        for place in &listed {
+            let found = find_place(GEOCODING_JSON, &place.query()).unwrap();
+            assert_eq!(
+                (found.latitude, found.longitude),
+                (place.latitude, place.longitude),
+                "{}",
+                place.query()
+            );
+        }
+        assert_eq!(listed[0].whereabouts(), "Rhône-Alpes, France");
+        assert!(places(r#"{"generationtime_ms": 0.7}"#).unwrap().is_empty());
     }
 
     #[test]

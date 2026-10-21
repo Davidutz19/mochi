@@ -12,8 +12,8 @@
 # or an idle daemon like hypridle. logind's unlock is never obeyed.
 # logind = true
 # Behind the lock screen: "wallpaper", the one awww, swww or hyprpaper
-# shows, or Hyprland's own when none does, blurred; "image", the one
-# `image` names, blurred; "screenshot", each monitor as it was just before
+# shows, or Hyprland's own when none does, blurred; "image", the image
+# below, blurred; "screenshot", each monitor as it was just before
 # locking, blurred, open windows and all; or "none" for the theme's
 # background.
 # background = "wallpaper"

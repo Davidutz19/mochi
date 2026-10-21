@@ -20,7 +20,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::actions::Args;
 use crate::arbiter::{ActivitySpec, EndReason};
-use crate::bubbles::BubbleSpec;
+use crate::bubbles::{BubbleHome, BubbleSpec};
 use crate::contributions::ContributionSpec;
 pub use mochi_protocol::spec::CallError;
 
@@ -78,6 +78,13 @@ pub trait Module: Send + 'static {
     /// deriving `JsonSchema`. `None` leaves the table to the panel's TOML
     /// editor.
     fn settings_schema(&self) -> Option<Value> {
+        None
+    }
+
+    /// Where its bubbles go unless the user moves them, for the settings
+    /// panel's bubble editor; `None` for a module without bubbles. Build
+    /// the specs from the same value with [`BubbleSpec::at`].
+    fn bubbles(&self) -> Option<BubbleHome> {
         None
     }
 
@@ -253,6 +260,10 @@ pub enum SettingsOp {
     /// Drops the change to an option, or to every option of a section,
     /// back to what the files say.
     Reset { path: String },
+    /// Moves, sorts, shows or hides modules' bubbles, as the bubble editor
+    /// sends it: an object of module ids, each with the `[bubbles.<module>]`
+    /// keys to change; `null` unsets one.
+    Arrange { placements: Value },
     /// Drops every change the panel made, back to what the files say.
     Discard,
     /// A section as TOML, for its editor.

@@ -27,6 +27,11 @@ pub struct Manifest {
     pub actions: Vec<Action>,
     #[serde(default)]
     pub contributions: Vec<ManifestContribution>,
+    /// Where its bubbles go unless the user moves them, for the settings
+    /// panel's bubble editor. Without it, a plugin's bubbles show there
+    /// once they appear.
+    #[serde(default)]
+    pub bubbles: Option<ManifestBubbles>,
     /// What the settings panel can't tell from `settings.toml` alone, by
     /// key: `[settings.units]`, or `[settings."cpu.notice"]` in a table.
     #[serde(default)]
@@ -144,6 +149,23 @@ impl Default for Views {
             overrides: Vec::new(),
         }
     }
+}
+
+/// `[bubbles]`: where its bubbles go by default. Its backend's
+/// `show_bubble` should say the same area, group and order.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ManifestBubbles {
+    pub area: mochi_protocol::Area,
+    /// Shares a pill with the bubbles of the same group.
+    #[serde(default)]
+    pub group: Option<String>,
+    /// Lower goes further left.
+    #[serde(default)]
+    pub order: i32,
+    /// It has a wide view with text, which `wide = true` shows.
+    #[serde(default)]
+    pub wide: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
@@ -429,6 +451,11 @@ overrides = ["idle/Pill"]
 [uses]
 state = ["media"]
 
+[bubbles]
+area = "center-right"
+group = "focus"
+wide = true
+
 [[actions]]
 name = "start"
 description = "Start a focus session"
@@ -468,6 +495,11 @@ options = { span = 2 }
         let contributions = manifest.contributions();
         assert_eq!(contributions[0].module, "pomodoro");
         assert_eq!(contributions[0].options, json!({ "span": 2 }));
+
+        let bubbles = manifest.bubbles.unwrap();
+        assert_eq!(bubbles.area, mochi_protocol::Area::CenterRight);
+        assert_eq!(bubbles.group.as_deref(), Some("focus"));
+        assert_eq!((bubbles.order, bubbles.wide), (0, true));
     }
 
     #[test]
@@ -506,6 +538,12 @@ options = { span = 2 }
                 "{base}id = \"x\"\napi = 1\n[backend]\nexec = \"/usr/bin/x\"\n"
             ))
             .contains("inside the plugin")
+        );
+        assert!(
+            error(&format!(
+                "{base}id = \"x\"\napi = 1\n[bubbles]\narea = \"middle\"\n"
+            ))
+            .contains("middle")
         );
     }
 }

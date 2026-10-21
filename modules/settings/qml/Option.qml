@@ -49,7 +49,93 @@ Item {
     readonly property string menuSource: menu === "value" ? source : menu.startsWith("arg:") ? (argAt(Number(menu.slice(4)))?.source ?? "") : ""
     readonly property bool searchable: menuSource !== "" || choices().length > 8
     // Something not in the menu may be typed too: names that change.
-    readonly property bool custom: menuSource !== "" && !["module", "control-center-card", "control-center-page", "settings-section", "power-profile"].includes(menuSource)
+    readonly property bool custom: menuSource !== "" && !["module", "control-center-card", "control-center-page", "settings-section", "power-profile", "duration", "place"].includes(menuSource)
+    // The menu narrows to what's typed in its search; a place search asks
+    // Open-Meteo instead, whose answers needn't contain the words.
+    readonly property bool filtered: menuSource !== "place"
+
+    // Entries by name, like the launcher's web searches: a heading, then
+    // each entry's options under it.
+    readonly property bool map: field.kind === "map"
+    // A map of plain values, like monitors' labels: one row per entry.
+    readonly property bool plainMap: map && (field.entry ?? []).length === 1 && field.entry[0].path === ""
+
+    // A nested option's menu: the panel shows it for that option.
+    signal popupFrom(string kind, Item owner, Item anchor)
+
+    // A map's entries: the ones set, and for a plain map every name its
+    // source knows, like each monitor connected.
+    function mapKeys(): var {
+        const set = Object.keys(value ?? {});
+        if (!plainMap || !field.keys)
+            return set;
+        const known = valuesFor(field.keys).map(choice => choice.value);
+        return known.concat(set.filter(key => !known.includes(key)));
+    }
+
+    function keyLabel(key: string): string {
+        return field.keys ? (valuesFor(field.keys).find(choice => choice.value === key)?.label ?? key) : key;
+    }
+
+    // One entry's option as a field of its own, at its path under the map.
+    function entryField(key: string, option: var): var {
+        const entry = (value ?? {})[key];
+        const plain = option.path === "";
+        return Object.assign({}, option, {
+            "path": plain ? `${field.path}.${key}` : `${field.path}.${key}.${option.path}`,
+            "title": plain ? keyLabel(key) : option.title,
+            "value": (plain ? entry : entry?.[option.path]) ?? option["default"] ?? null,
+            "changed": false
+        });
+    }
+
+    // An entry set to what its map writes to take it out, like an engine
+    // with no address.
+    function entryOff(key: string): bool {
+        const off = field.remove;
+        const entry = (value ?? {})[key];
+        if (off === undefined || off === null || typeof off !== "object" || typeof entry !== "object")
+            return false;
+        return Object.keys(off).every(name => entry?.[name] === off[name]);
+    }
+
+    function addKey(key: string): void {
+        const name = key.trim();
+        if (name === "" || (value ?? {})[name] !== undefined)
+            return;
+        Daemon.command("settings", "set", [`${field.path}.${name}`, "{}"]);
+    }
+
+    function removeKey(key: string): void {
+        Daemon.command("settings", "set", [`${field.path}.${key}`, "null"]);
+    }
+
+    // A place search asks the weather module, a moment after typing stops.
+    function searched(text: string): void {
+        if (menuSource !== "place")
+            return;
+        placeQuery = text;
+        placeSearch.restart();
+    }
+
+    property string placeQuery: ""
+
+    Timer {
+        id: placeSearch
+
+        interval: 300
+        onTriggered: Daemon.command("weather", "places", [root.placeQuery])
+    }
+
+    // "HH:MM", split for the time picker's two menus.
+    readonly property var time: {
+        const parts = String(value ?? field["default"] ?? "00:00").split(":");
+        return [parts[0] ?? "00", parts[1] ?? "00"];
+    }
+
+    function pad(number: int): string {
+        return String(number).padStart(2, "0");
+    }
 
     // Measures choices' labels in the segments' font.
     FontMetrics {
@@ -135,11 +221,11 @@ Item {
         onTriggered: root.send(root.pending)
     }
 
-    implicitHeight: group ? heading.implicitHeight + Theme.spaceMedium : Math.max(texts.implicitHeight, control.height) + Theme.spaceMedium * 2
+    implicitHeight: map ? heading.implicitHeight + mapEntries.implicitHeight + Theme.spaceMedium * 2 : group ? heading.implicitHeight + Theme.spaceMedium : Math.max(texts.implicitHeight, control.height) + Theme.spaceMedium * 2
 
     Rectangle {
         anchors.fill: parent
-        visible: !root.group
+        visible: !root.group && !root.map
         radius: Theme.radiusField
         color: root.highlighted ? Theme.raised : hover.hovered ? Theme.surface : "transparent"
 
@@ -158,7 +244,7 @@ Item {
     Column {
         id: heading
 
-        visible: root.group
+        visible: root.group || root.map
         y: Theme.spaceMedium
         x: Theme.spaceMedium
         width: parent.width - Theme.spaceMedium * 2
@@ -183,10 +269,132 @@ Item {
         }
     }
 
+    // A map's entries, under its heading: each one's options as rows of
+    // their own, and a way to add one.
+    Column {
+        id: mapEntries
+
+        visible: root.map
+        x: Theme.spaceMedium
+        y: heading.y + heading.implicitHeight + Theme.spaceSmall
+        width: parent.width - Theme.spaceMedium * 2
+        spacing: Theme.spaceSmall
+
+        Text {
+            visible: root.map && !root.plainMap && root.mapKeys().length === 0
+            width: parent.width
+            wrapMode: Text.Wrap
+            text: "None yet."
+            color: Theme.muted
+            font.pixelSize: Theme.textCaption
+            font.family: Theme.fontFamily
+        }
+
+        Repeater {
+            model: root.map ? root.mapKeys() : []
+
+            Rectangle {
+                id: entryBlock
+
+                required property string modelData
+                readonly property string key: modelData
+
+                width: mapEntries.width
+                height: entryColumn.implicitHeight
+                radius: Theme.radiusField
+                color: root.plainMap ? "transparent" : Theme.surface
+
+                Column {
+                    id: entryColumn
+
+                    width: parent.width
+
+                    // The entry's name, and taking it out.
+                    Item {
+                        visible: !root.plainMap
+                        width: parent.width
+                        height: Theme.rowHeight
+
+                        Text {
+                            x: Theme.spaceMedium
+                            anchors.verticalCenter: parent.verticalCenter
+                            // Taken out while the file still has it: off.
+                            text: root.entryOff(entryBlock.key) ? `${root.keyLabel(entryBlock.key)} · Off` : root.keyLabel(entryBlock.key)
+                            color: Theme.foreground
+                            font.pixelSize: Theme.textBody
+                            font.family: Theme.fontFamily
+                            font.weight: Theme.weightTitle
+                        }
+
+                        IconButton {
+                            anchors.right: parent.right
+                            anchors.rightMargin: Theme.spaceMedium
+                            anchors.verticalCenter: parent.verticalCenter
+                            icon: "close"
+                            size: 14
+                            tone: "neutral"
+                            onClicked: root.removeKey(entryBlock.key)
+                        }
+                    }
+
+                    Repeater {
+                        model: root.field.entry ?? []
+
+                        // Option is this file: a nested one loads by name.
+                        Loader {
+                            id: nested
+
+                            required property var modelData
+
+                            width: entryColumn.width
+                            Component.onCompleted: setSource("Option.qml", {
+                                "field": root.entryField(entryBlock.key, modelData)
+                            })
+                            onLoaded: {
+                                item.popup.connect((kind, anchor) => root.popupFrom(kind, item, anchor));
+                                item.popupFrom.connect(root.popupFrom);
+                            }
+
+                            Binding {
+                                target: nested.item
+                                property: "field"
+                                value: root.entryField(entryBlock.key, nested.modelData)
+                                when: nested.item !== null
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Adds an entry: one the source knows, or one typed.
+        Row {
+            visible: root.map && !root.plainMap
+            spacing: Theme.spaceSmall
+
+            DropButton {
+                id: addButton
+
+                visible: (root.field.keys ?? "") !== ""
+                text: "Add…"
+                onClicked: root.openMenu("key", addButton)
+            }
+
+            Entry {
+                width: 240
+                placeholder: (root.field.keys ?? "") !== "" ? "Or a new one, by name" : "Add one, by name"
+                onAccepted: name => {
+                    root.addKey(name);
+                    clear();
+                }
+            }
+        }
+    }
+
     Column {
         id: texts
 
-        visible: !root.group
+        visible: !root.group && !root.map
         x: Theme.spaceMedium
         anchors.verticalCenter: parent.verticalCenter
         width: parent.width - x - Theme.spaceMedium * 2 - controls.width
@@ -239,7 +447,7 @@ Item {
     Row {
         id: controls
 
-        visible: !root.group
+        visible: !root.group && !root.map
         anchors.right: parent.right
         anchors.rightMargin: Theme.spaceMedium
         anchors.verticalCenter: parent.verticalCenter
@@ -274,7 +482,13 @@ Item {
                 case "list":
                     return root.source === "command" ? commandControl : listControl;
                 case "text":
+                    if (root.field.format === "time")
+                        return timeControl;
+                    if ((root.field.suggestions ?? []).length > 0)
+                        return presetControl;
                     return root.source === "file" ? fileControl : root.source !== "" ? pickControl : textControl;
+                case "map":
+                    return null;
                 default:
                     return tableControl;
                 }
@@ -302,6 +516,24 @@ Item {
                         "detail": detail ?? ""
                     }));
         switch (source) {
+        case "duration":
+            // Lengths a timer is set for, as "5m" or "1h 30m".
+            return ["1m", "2m", "3m", "5m", "10m", "15m", "20m", "25m", "30m", "45m", "1h", "1h 30m", "2h", "3h"].map(length => ({
+                        "value": length,
+                        "label": length.replace("h", " h").replace("m", " min").replace(/\s+/g, " ").trim()
+                    }));
+        case "place":
+            // What the weather module found for the search typed last.
+            return Daemon.state("weather")?.places ?? [];
+        case "launcher-provider":
+            return [["apps", "Apps"], ["calculator", "Calculator"], ["commands", "Commands"], ["files", "Files"]].map(([value, label]) => ({
+                        "value": value,
+                        "label": label
+                    })).concat(Daemon.offered("launcher", "provider").map(offer => ({
+                        "value": offer.id,
+                        "label": offer.title,
+                        "detail": label(offer.module)
+                    })));
         case "output":
             return Quickshell.screens.map(screen => screen.name).filter(name => !name.startsWith("MOCHI-")).map(name => ({
                         "value": name,
@@ -490,6 +722,11 @@ Item {
     }
 
     function choices(): var {
+        return choicesFor(menu);
+    }
+
+    // The values of the menu `menu` names.
+    function choicesFor(menu: string): var {
         switch (menu) {
         case "module":
             return Object.keys(Daemon.state("settings")?.actions ?? {}).filter(module => (Daemon.state("settings").actions[module] ?? []).length > 0).sort().map(module => ({
@@ -503,9 +740,30 @@ Item {
                         "detail": action.help ?? action.description ?? ""
                     }));
         case "suggest":
-            return (field.suggestions ?? []).map(command => ({
-                        "value": JSON.stringify(command),
-                        "label": command.join(" ")
+            // Commands, plain values, or values with a label of their own.
+            return (field.suggestions ?? []).map(suggestion => Array.isArray(suggestion) ? {
+                    "value": JSON.stringify(suggestion),
+                    "label": suggestion.join(" ")
+                } : typeof suggestion === "object" ? {
+                    "value": JSON.stringify(suggestion.value),
+                    "label": suggestion.label ?? String(suggestion.value),
+                    "detail": String(suggestion.value)
+                } : {
+                    "value": JSON.stringify(suggestion),
+                    "label": String(suggestion)
+                });
+        case "key":
+            // A map's names its source knows that aren't set yet.
+            return valuesFor(field.keys ?? "").filter(choice => (value ?? {})[choice.value] === undefined);
+        case "hour":
+            return [...Array(24).keys()].map(hour => ({
+                        "value": pad(hour),
+                        "label": pad(hour)
+                    }));
+        case "minute":
+            return [...Array(12).keys()].map(step => ({
+                        "value": pad(step * 5),
+                        "label": pad(step * 5)
                     }));
         }
         if (menu.startsWith("arg:")) {
@@ -546,6 +804,12 @@ Item {
             return commandAction === choice;
         case "suggest":
             return JSON.stringify(value ?? []) === choice;
+        case "key":
+            return false;
+        case "hour":
+            return time[0] === choice;
+        case "minute":
+            return time[1] === choice;
         }
         if (menu.startsWith("arg:"))
             return argValue(Number(menu.slice(4))) === choice;
@@ -566,6 +830,15 @@ Item {
             return;
         case "suggest":
             sendNow(JSON.parse(choice));
+            return;
+        case "key":
+            addKey(choice);
+            return;
+        case "hour":
+            sendNow(`${choice}:${time[1]}`);
+            return;
+        case "minute":
+            sendNow(`${time[0]}:${choice}`);
             return;
         }
         if (menu.startsWith("arg:")) {
@@ -797,6 +1070,68 @@ Item {
         }
     }
 
+    // A time of day: an hour and a minute, each from a menu.
+    Component {
+        id: timeControl
+
+        Row {
+            spacing: Theme.spaceTiny
+
+            DropButton {
+                id: hourButton
+
+                width: 76
+                text: root.time[0]
+                onClicked: root.openMenu("hour", hourButton)
+            }
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: ":"
+                color: Theme.muted
+                font.pixelSize: Theme.textBody
+                font.family: Theme.fontFamily
+            }
+
+            DropButton {
+                id: minuteButton
+
+                width: 76
+                text: root.time[1]
+                onClicked: root.openMenu("minute", minuteButton)
+            }
+        }
+    }
+
+    // A text with ready-made values, like a time format: picked from a
+    // menu that says what each looks like, or typed.
+    Component {
+        id: presetControl
+
+        Column {
+            width: 240
+            spacing: Theme.spaceTiny
+
+            DropButton {
+                id: presetButton
+
+                width: parent.width
+                text: {
+                    const shown = root.choicesFor("suggest").find(choice => choice.value === JSON.stringify(root.value ?? ""));
+                    return shown?.label ?? "Your own";
+                }
+                onClicked: root.openMenu("suggest", presetButton)
+            }
+
+            Entry {
+                width: parent.width
+                text: root.value ?? ""
+                placeholder: "Or type your own"
+                onAccepted: text => root.sendNow(text)
+            }
+        }
+    }
+
     // A file's path, typed, or picked with the desktop's file chooser,
     // which the settings module opens and sets the option from. The
     // button says so while the chooser is open; pressing it again opens
@@ -917,7 +1252,7 @@ Item {
             DropButton {
                 id: menuButton1
 
-                visible: root.picks
+                visible: root.picks && root.source !== "file"
                 width: parent.width
                 text: "Add…"
                 onClicked: root.openMenu("value", menuButton1)
@@ -933,8 +1268,16 @@ Item {
                 onClicked: root.openMenu("suggest", menuButton2)
             }
 
+            // Paths, from the desktop's chooser: a folder, or a file.
+            ActionButton {
+                visible: root.source === "file"
+                text: Daemon.state("settings")?.choosing === root.field.path ? "Choosing…" : root.field.filter === "folder" ? "Add a folder…" : "Add a file…"
+                icon: "folder_open"
+                onClicked: Daemon.command("settings", "choose-file", [root.field.path])
+            }
+
             Entry {
-                visible: !root.picks
+                visible: !root.picks || root.source === "file"
                 width: parent.width
                 placeholder: (root.field.suggestions ?? []).length > 0 ? "Or type a word…" : "Add…"
                 onAccepted: added => {
@@ -1005,7 +1348,7 @@ Item {
             id: menuButton3
 
             width: 240
-            text: root.value ? root.labelFor(root.value) : root.field.optional || root.field["default"] === "" ? "Default" : "Choose…"
+            text: root.value ? root.labelFor(root.value) : root.source === "place" ? "Search for a place…" : root.field.optional || root.field["default"] === "" ? "Default" : "Choose…"
             muted: !root.value
             onClicked: root.openMenu("value", menuButton3)
         }

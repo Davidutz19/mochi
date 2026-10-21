@@ -15,11 +15,11 @@
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
 
-use mochi_protocol::{Area, Bubble, BubbleId, Overflow};
+use mochi_protocol::{Area, AreaArrangement, Arrangement, Bubble, BubbleId, Overflow};
 use serde::Deserialize;
 use serde_json::Value;
 
-pub use mochi_protocol::spec::BubbleSpec;
+pub use mochi_protocol::spec::{BubbleHome, BubbleSpec};
 
 /// The user's placement for all of one module's bubbles:
 /// `[bubbles.<module>]` in `config.toml`.
@@ -35,6 +35,9 @@ pub struct Placement {
     /// `false` hides the module's bubbles. The module keeps running and
     /// still shows them as far as it knows.
     pub show: Option<bool>,
+    /// `false` keeps the module's bubbles in pills of their own, beside the
+    /// shape of an area that merges its bubbles.
+    pub merge: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -55,8 +58,10 @@ pub struct Bubbles {
     arrivals: u64,
     /// Counts news, so the latest has the highest.
     news: u64,
-    /// Areas stack their bubbles, when set.
+    /// How stacked areas behave, when any area stacks.
     stack: Option<mochi_protocol::Stacking>,
+    /// The areas that don't lay their bubbles apart.
+    arrangements: Vec<AreaArrangement>,
     /// While set, only this module's bubbles show.
     only: Option<String>,
     changed: bool,
@@ -81,6 +86,8 @@ struct Placed<'a> {
     order: i32,
     /// The wide view, when the user asked for it and the module has one.
     wide: Option<&'a str>,
+    /// Outside its area's merged shape.
+    apart: bool,
 }
 
 impl Bubbles {
@@ -102,8 +109,15 @@ impl Bubbles {
         }
     }
 
-    pub fn set_stack(&mut self, stack: Option<mochi_protocol::Stacking>) {
-        if self.stack != stack {
+    /// How each area draws its bubbles, and how stacked areas behave. Areas
+    /// left out lay theirs apart.
+    pub fn arrange(
+        &mut self,
+        arrangements: Vec<AreaArrangement>,
+        stack: Option<mochi_protocol::Stacking>,
+    ) {
+        if self.arrangements != arrangements || self.stack != stack {
+            self.arrangements = arrangements;
             self.stack = stack;
             self.changed = true;
         }
@@ -111,6 +125,17 @@ impl Bubbles {
 
     pub fn stack(&self) -> Option<mochi_protocol::Stacking> {
         self.stack
+    }
+
+    pub fn arrangements(&self) -> &[AreaArrangement] {
+        &self.arrangements
+    }
+
+    fn arrangement(&self, area: Area) -> Arrangement {
+        self.arrangements
+            .iter()
+            .find(|entry| entry.area == area)
+            .map_or(Arrangement::Apart, |entry| entry.arrangement)
     }
 
     /// Replaces the user's placements and the per-area maximum, for a
@@ -261,7 +286,8 @@ impl Bubbles {
         let in_area: Vec<&Placed<'_>> =
             placed.iter().filter(|placed| placed.area == area).collect();
         // A stack holds them all.
-        let Some(max) = self.max_per_area.filter(|_| self.stack.is_none()) else {
+        let stacked = self.arrangement(area) == Arrangement::Stacked;
+        let Some(max) = self.max_per_area.filter(|_| !stacked) else {
             return (in_area, Vec::new());
         };
         if in_area.len() <= max {
@@ -297,6 +323,7 @@ impl Bubbles {
                 .wide
                 .as_deref()
                 .filter(|_| placement.and_then(|placement| placement.wide) == Some(true)),
+            apart: placement.and_then(|placement| placement.merge) == Some(false),
         }
     }
 
@@ -326,6 +353,7 @@ fn bubble(placed: &Placed<'_>, wide: Option<&str>) -> Bubble {
         priority: placed.entry.spec.priority.0,
         news: placed.entry.news,
         tooltip: placed.entry.spec.tooltip.clone(),
+        apart: placed.apart,
     }
 }
 
@@ -372,6 +400,13 @@ mod tests {
         BubbleSpec::new("Bubble").area(area)
     }
 
+    fn every(arrangement: Arrangement) -> Vec<AreaArrangement> {
+        Area::ALL
+            .into_iter()
+            .map(|area| AreaArrangement { area, arrangement })
+            .collect()
+    }
+
     fn news(bubbles: &Bubbles) -> Vec<(u64, u64)> {
         bubbles
             .snapshot()
@@ -401,7 +436,10 @@ mod tests {
         bubbles.show(BubbleId(1), "a", spec(Area::Right));
         bubbles.show(BubbleId(2), "b", spec(Area::Right).priority(Priority::HIGH));
         assert_eq!(bubbles.snapshot().1.len(), 1);
-        bubbles.set_stack(Some(mochi_protocol::Stacking { news_ms: 4000 }));
+        bubbles.arrange(
+            every(Arrangement::Stacked),
+            Some(mochi_protocol::Stacking { news_ms: 4000 }),
+        );
         let (shown, overflow) = bubbles.snapshot();
         assert_eq!(shown.len(), 2);
         assert!(overflow.is_empty());
@@ -594,7 +632,10 @@ mod tests {
             [(3, "Bubble".into(), false), (2, "Wide".into(), true)]
         );
         // A stack hides nothing.
-        bubbles.set_stack(Some(mochi_protocol::Stacking { news_ms: 4000 }));
+        bubbles.arrange(
+            every(Arrangement::Stacked),
+            Some(mochi_protocol::Stacking { news_ms: 4000 }),
+        );
         assert!(bubbles.hidden(Area::Left).is_empty());
     }
 

@@ -71,6 +71,22 @@ The asset is a tar archive, compressed or not, holding the plugin as it should b
 |---|---|---|
 | `state` | `[]` | Modules whose published state the backend receives, as `state` messages: once at the start, then on every change, and `null` when the module stops. A module that isn't enabled sends nothing. |
 
+## `[bubbles]`
+
+Where the plugin's bubbles go unless the user moves them. Settings › Bubbles shows the plugin there before its first bubble appears; without this table, the plugin shows up there only once it has shown one. Say the same area, group and order the backend's `show_bubble` gives.
+
+| Key | Default | |
+|---|---|---|
+| `area` | required | `left`, `center-left`, `center`, `center-right` or `right`. |
+| `group` | none | Shares a pill with the bubbles of the same group, like the builtin `status`. |
+| `order` | `0` | Lower goes further left. |
+| `wide` | `false` | It has a wide view with text, so the editor offers the "With text" switch. |
+
+```toml
+[bubbles]
+area = "right"
+```
+
 ## `[[actions]]`
 
 One table per action `mochi ipc <id> <action>` runs. mochid checks the words typed against the arguments before the backend sees them, and `mochi ipc <id>` lists the actions with their help.

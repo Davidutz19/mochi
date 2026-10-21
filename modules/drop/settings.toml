@@ -2,7 +2,7 @@
 # actions that fit.
 [module.drop]
 # The video encoder conversions start with, like "libx264", "libsvtav1" or
-# "h264_nvenc" for NVIDIA's; "" lets ffmpeg pick. The panel lists the ones
+# "h264_nvenc" for NVIDIA's; Default lets ffmpeg pick. The panel lists the ones
 # your ffmpeg has, and one that doesn't fit the file, like H.264 in WebM,
 # gives way to ffmpeg's pick.
 # video_encoder = ""

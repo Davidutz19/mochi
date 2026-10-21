@@ -28,8 +28,8 @@ use std::process::Stdio;
 use futures_util::StreamExt;
 use include_dir::{Dir, include_dir};
 use mochi_core::{
-    ActionSpec, Area, ArgSpec, Assets, BoxFuture, BubbleId, BubbleSpec, ContributionSpec, Module,
-    ModuleCommand, ModuleCtx, ModuleError, ModuleEvent,
+    ActionSpec, Area, ArgSpec, Assets, BoxFuture, BubbleHome, BubbleId, BubbleSpec,
+    ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError, ModuleEvent,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -122,9 +122,16 @@ fn buttons(abilities: Abilities) -> Vec<Button> {
         .collect()
 }
 
+/// Where its bubbles go unless the user moves them.
+const BUBBLES: BubbleHome = BubbleHome::new(Area::Right).group("status").order(-1);
+
 impl Module for Power {
     fn id(&self) -> &'static str {
         "power"
+    }
+
+    fn bubbles(&self) -> Option<BubbleHome> {
+        Some(BUBBLES)
     }
 
     fn assets(&self) -> Assets {
@@ -288,15 +295,7 @@ impl Awake {
                 .await
                 .map_err(describe)?;
             self.inhibitor = Some(inhibitor);
-            self.bubble = Some(
-                ctx.show_bubble(
-                    BubbleSpec::new("Awake")
-                        .key("awake")
-                        .area(Area::Right)
-                        .group("status")
-                        .order(-1),
-                ),
-            );
+            self.bubble = Some(ctx.show_bubble(BubbleSpec::new("Awake").key("awake").at(&BUBBLES)));
             tracing::info!("keeping awake");
         } else {
             self.inhibitor = None;

@@ -30,9 +30,9 @@ use std::time::{Duration, Instant};
 use include_dir::{Dir, include_dir};
 use mochi_core::quality::{self, Resolution};
 use mochi_core::{
-    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Args, Assets, BoxFuture, BubbleId,
-    BubbleSpec, ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError, ModuleEvent,
-    Priority,
+    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Args, Assets, BoxFuture, BubbleHome,
+    BubbleId, BubbleSpec, ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError,
+    ModuleEvent, Priority,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -80,9 +80,16 @@ impl Settings {
 /// The highest refresh rate the switchable monitor may have.
 const MAX_FRAMERATE: u32 = 240;
 
+/// Where its bubbles go unless the user moves them.
+const BUBBLES: BubbleHome = BubbleHome::new(Area::CenterRight).order(-9);
+
 impl Module for Share {
     fn id(&self) -> &'static str {
         "share"
+    }
+
+    fn bubbles(&self) -> Option<BubbleHome> {
+        Some(BUBBLES)
     }
 
     fn assets(&self) -> Assets {
@@ -690,8 +697,7 @@ impl State {
                     ctx.show_bubble(
                         BubbleSpec::new("Sharing")
                             .key("sharing")
-                            .area(Area::CenterRight)
-                            .order(-9)
+                            .at(&BUBBLES)
                             .payload(json!({ "switchable": self.session.is_some() })),
                     ),
                 );

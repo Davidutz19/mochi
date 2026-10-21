@@ -43,7 +43,7 @@ pub use toml;
 
 pub use actions::{ArgError, ArgValue, Args};
 pub use arbiter::{ActivitySpec, Arbiter, ArbiterError, Effect, EndReason, Priority, SamePriority};
-pub use bubbles::{BubbleError, BubbleSpec, Bubbles, Placement};
+pub use bubbles::{BubbleError, BubbleHome, BubbleSpec, Bubbles, Placement};
 pub use config::{
     BentoConfig, BubblesConfig, ClickOutside, Config, ConfigError, IslandConfig, Notices, Panels,
     Paths,

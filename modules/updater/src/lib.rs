@@ -56,6 +56,7 @@ struct Settings {
     interval_hours: u64,
     /// The command "Run in a terminal" runs instead of the one for how
     /// Mochi was installed, like ["nh", "os", "switch", "--update"].
+    #[schemars(extend("x-suggest" = [["nh", "os", "switch", "--update"], ["sudo", "pacman", "-Syu"], ["paru", "-Syu"], ["yay", "-Syu"], ["sudo", "dnf", "upgrade"], ["sudo", "apt", "upgrade"]]))]
     command: Vec<String>,
     /// The terminal that runs it, like ["kitty"] or ["foot"]. Empty uses
     /// xdg-terminal-exec, or $TERMINAL.

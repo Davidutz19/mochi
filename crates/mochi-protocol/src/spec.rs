@@ -232,6 +232,51 @@ pub enum EndReason {
     Outside,
 }
 
+/// Where a module's bubbles go unless the user moves them, for the
+/// settings panel's bubble editor. The module builds its specs from it
+/// with [`BubbleSpec::at`], so the editor and the bubbles agree.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct BubbleHome {
+    /// The area they go in.
+    pub area: Area,
+    /// Bubbles with the same group next to each other share a pill.
+    pub group: Option<&'static str>,
+    /// Lower goes further left.
+    pub order: i32,
+    /// It has a wide view with text, which `wide = true` shows.
+    pub wide: bool,
+}
+
+impl BubbleHome {
+    /// In `area`, on their own, with no wide view.
+    pub const fn new(area: Area) -> Self {
+        Self {
+            area,
+            group: None,
+            order: 0,
+            wide: false,
+        }
+    }
+
+    /// Shares a pill with the bubbles of the same group.
+    pub const fn group(mut self, group: &'static str) -> Self {
+        self.group = Some(group);
+        self
+    }
+
+    /// Lower goes further left.
+    pub const fn order(mut self, order: i32) -> Self {
+        self.order = order;
+        self
+    }
+
+    /// Has a wide view with text.
+    pub const fn wide(mut self) -> Self {
+        self.wide = true;
+        self
+    }
+}
+
 /// Everything a module says about a bubble it wants to show.
 ///
 /// As JSON, only `view` is required.
@@ -329,6 +374,15 @@ impl BubbleSpec {
     /// Lower goes further left.
     pub fn order(mut self, order: i32) -> Self {
         self.order = order;
+        self
+    }
+
+    /// Where its module's bubbles go by default: `home`'s area, group and
+    /// order.
+    pub fn at(mut self, home: &BubbleHome) -> Self {
+        self.area = home.area;
+        self.group = home.group.map(str::to_owned);
+        self.order = home.order;
         self
     }
 

@@ -11,8 +11,8 @@
 # How long a reading must stay over a level before it counts, so a spike
 # says nothing.
 # sustain_seconds = 10
-# Levels in percent of use: over `notice` shows a short notice once, naming
-# the busiest process; over `critical` a red bubble stays until it comes
+# Levels in percent of use: over Notice, a short notice shows once, naming
+# the busiest process; over Critical, a red bubble stays until it comes
 # down. 0 turns a level off; one left out of a table takes 85 and 95.
 # cpu = { notice = 90, critical = 98 }
 # memory = { notice = 85, critical = 95 }

@@ -735,6 +735,18 @@ Item {
                 sourceComponent: About {}
             }
 
+            // The Bubbles page: where each module's bubbles go, above the
+            // areas' own options.
+            Loader {
+                width: parent.width
+                active: !content.searching && root.current?.id === "bubbles"
+                visible: active
+
+                sourceComponent: Bubbles {
+                    onPopup: (owner, anchor) => root.openPopup("choice", owner, anchor)
+                }
+            }
+
             // What a module shows on its own page above its
             // options, offered as a "section" to the settings,
             // like the Updates page's status and changelog.
@@ -875,6 +887,7 @@ Item {
                             error: root.error?.path === modelData ? root.error.message : ""
                             highlighted: root.option === modelData
                             onPopup: (kind, anchor) => root.openPopup(kind, row, anchor)
+                            onPopupFrom: (kind, owner, anchor) => root.openPopup(kind, owner, anchor)
                             onEditToml: root.edit()
                             onHighlightedChanged: {
                                 if (highlighted)
@@ -982,7 +995,7 @@ Item {
         readonly property var all: owner ? owner.choices() : []
         readonly property var shown: {
             const words = query.trim().toLowerCase();
-            if (words === "")
+            if (words === "" || owner?.filtered === false)
                 return all;
             return all.filter(choice => `${choice.label} ${choice.value} ${choice.detail ?? ""}`.toLowerCase().includes(words));
         }
@@ -1014,7 +1027,11 @@ Item {
             width: parent.width - Theme.spaceTiny * 2
             placeholder: choices.owner?.custom ? "Search, or type one…" : "Search…"
             live: true
-            onEdited: text => choices.query = text
+            onEdited: text => {
+                choices.query = text;
+                // A search that asks someone, like the weather's places.
+                choices.owner?.searched?.(text);
+            }
             onAccepted: text => {
                 const first = choices.typed ? text.trim() : choices.shown[0]?.value;
                 if (first === undefined)

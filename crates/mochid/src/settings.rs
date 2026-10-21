@@ -39,6 +39,8 @@ pub struct Available {
     pub title: String,
     pub icon: String,
     pub plugin: bool,
+    /// Where its bubbles go by default, for one that shows some.
+    pub bubbles: Option<mochi_core::BubbleHome>,
 }
 
 #[derive(Debug)]
@@ -98,14 +100,14 @@ impl Store {
             config: mochi_core::config::read_table(&store.config_file)?,
             theme: mochi_core::config::read_table(&store.theme_file)?,
         };
-        for note in mochi_core::config::migrate_module_ids(&mut store.base.config) {
+        for note in mochi_core::config::migrate(&mut store.base.config) {
             tracing::warn!(file = %store.config_file.display(), "{note}; the old name still works for now");
         }
         // Without changes first: their errors are only warnings.
         let plain = store.resolve(&Changes::default(), &catalog)?;
         let changes = match Changes::load(&store.changes_file) {
             Ok(mut changes) => {
-                mochi_core::config::migrate_module_ids(&mut changes.config);
+                mochi_core::config::migrate(&mut changes.config);
                 changes
             }
             Err(error) => {
@@ -187,6 +189,7 @@ impl Store {
         match op {
             Op::Set { path, value } => {
                 let (file, parts, value) = self.value(path, value)?;
+                let value = self.taken_out(path, &parts, value);
                 // What's kept wins over what's tried.
                 changes::remove(preview.table_mut(file), &parts);
                 // A preset picked here replaces the colors picked before.
@@ -201,6 +204,23 @@ impl Store {
             Op::Reset { path } => {
                 self.reset(&mut changes, path)?;
                 self.reset(&mut preview, path)?;
+            }
+            Op::Arrange(placements) => {
+                for (module, key, value) in arranged(placements)? {
+                    let parts = ["bubbles", module, key];
+                    changes::remove(preview.table_mut(File::Config), &parts);
+                    // Unset means the module's default: the change goes,
+                    // unless the file sets the key, which the default must
+                    // then override.
+                    let value = value.or_else(|| {
+                        changes::get(&self.base.config, &parts)
+                            .and_then(|_| self.placement_default(module, key))
+                    });
+                    match value {
+                        Some(value) => changes::set(changes.table_mut(File::Config), &parts, value),
+                        None => changes::remove(changes.table_mut(File::Config), &parts),
+                    }
+                }
             }
             Op::Discard => {
                 changes = Changes::default();
@@ -292,6 +312,58 @@ impl Store {
         preview
     }
 
+    /// What an entry of a map, like a launcher engine, becomes when the
+    /// panel takes it out, or empties a plain one like a monitor's label:
+    /// gone from the changes, or, when the file has it, the map's
+    /// `x-remove`, which its module reads as off.
+    fn taken_out(&self, path: &str, parts: &[&str], value: Option<Value>) -> Option<Value> {
+        let Some(map) = self.map_of(path) else {
+            return value;
+        };
+        let emptied = matches!(&value, Some(Value::String(text)) if text.is_empty());
+        if value.is_some() && !emptied {
+            return value;
+        }
+        changes::get(&self.base.config, parts)?;
+        map.remove
+            .as_ref()
+            .and_then(|remove| Value::try_from(remove.clone()).ok())
+    }
+
+    /// The map whose entry `path` is, like `config.module.launcher.engines`
+    /// for `config.module.launcher.engines.crates`.
+    fn map_of(&self, path: &str) -> Option<&Field> {
+        self.sections
+            .iter()
+            .flat_map(|section| &section.fields)
+            .filter(|field| field.kind == Kind::Map)
+            .find(|map| {
+                path.strip_prefix(&map.path)
+                    .and_then(|rest| rest.strip_prefix('.'))
+                    .is_some_and(|key| !key.contains('.'))
+            })
+    }
+
+    /// What `[bubbles.<module>] <key>` is when nothing sets it: the
+    /// module's own placement for its area, group and order.
+    fn placement_default(&self, module: &str, key: &str) -> Option<Value> {
+        let home = self
+            .available
+            .iter()
+            .find(|entry| entry.id == module)
+            .and_then(|entry| entry.bubbles);
+        match key {
+            "show" | "merge" => Some(Value::Boolean(true)),
+            "wide" => Some(Value::Boolean(false)),
+            "area" => serde_json::to_value(home?.area)
+                .ok()
+                .and_then(|area| area.as_str().map(|area| Value::String(area.to_owned()))),
+            "group" => Some(Value::String(home?.group.unwrap_or_default().to_owned())),
+            "order" => Some(Value::Integer(home?.order.into())),
+            _ => None,
+        }
+    }
+
     /// Drops the panel's change to an option, or to every option of a
     /// section, so it's back to what the files say: their value, or the
     /// default where they say nothing.
@@ -305,11 +377,27 @@ impl Store {
         Ok(())
     }
 
+    /// The option at `path`. Under a map, like
+    /// `config.module.launcher.engines.crates.url`, it's the entry's option
+    /// of that name; a path that ends at an entry is the map itself, which
+    /// takes a whole entry, or `null` to remove it.
     fn field(&self, path: &str) -> Result<&Field, String> {
-        self.sections
-            .iter()
-            .flat_map(|section| &section.fields)
-            .find(|field| field.path == path && field.kind != Kind::Group)
+        let fields = || self.sections.iter().flat_map(|section| &section.fields);
+        if let Some(field) = fields().find(|field| field.path == path && field.kind != Kind::Group)
+        {
+            return Ok(field);
+        }
+        fields()
+            .filter(|field| field.kind == Kind::Map)
+            .find_map(|map| {
+                let rest = path.strip_prefix(&map.path)?.strip_prefix('.')?;
+                let (_, option) = rest.split_once('.').unwrap_or((rest, ""));
+                match map.entry.iter().find(|field| field.path == option) {
+                    Some(field) => Some(field),
+                    None if option.is_empty() => Some(map),
+                    None => None,
+                }
+            })
             .ok_or_else(|| format!("no option {path}"))
     }
 
@@ -441,13 +529,24 @@ impl Store {
                     "title": module.title,
                     "icon": module.icon,
                     "plugin": module.plugin,
+                    "bubbles": module.bubbles,
                     "enabled": enabled.contains(&module.id),
                 })
             })
             .collect();
+        // Each module's `[bubbles.<module>]`, for the bubble editor.
+        let placements: serde_json::Map<String, Json> = match changes::get(&config, &["bubbles"]) {
+            Some(Value::Table(bubbles)) => bubbles
+                .iter()
+                .filter(|(_, value)| value.is_table())
+                .map(|(module, value)| (module.clone(), options::to_json(value)))
+                .collect(),
+            _ => serde_json::Map::new(),
+        };
         json!({
             "sections": sections,
             "modules": modules,
+            "placements": placements,
             "enabled": enabled,
             "changes": !self.changes.is_empty(),
             "previewing": !self.preview.is_empty(),
@@ -528,6 +627,37 @@ impl Store {
 }
 
 /// The path of every value in `table` that isn't a table, lists included.
+/// A module, one of its `[bubbles.<module>]` keys, and its new value.
+type Arranged<'a> = (&'a str, &'a str, Option<Value>);
+
+/// What the bubble editor sends, as `[bubbles.<module>]` keys and their
+/// TOML values, `None` to unset. Only the keys a placement has, each with
+/// its kind; the config check after it catches a wrong area.
+fn arranged(placements: &Json) -> Result<Vec<Arranged<'_>>, String> {
+    let modules = placements
+        .as_object()
+        .ok_or("the placements aren't an object")?;
+    let mut out = Vec::new();
+    for (module, keys) in modules {
+        let keys = keys
+            .as_object()
+            .ok_or_else(|| format!("{module}'s placement isn't an object"))?;
+        for (key, value) in keys {
+            let value = match (key.as_str(), value) {
+                (_, Json::Null) => None,
+                ("area" | "group", Json::String(text)) => Some(Value::String(text.clone())),
+                ("order", Json::Number(number)) => Some(Value::Integer(
+                    number.as_i64().ok_or("an order is a whole number")?,
+                )),
+                ("wide" | "show" | "merge", Json::Bool(on)) => Some(Value::Boolean(*on)),
+                _ => return Err(format!("no bubble setting {key} = {value}")),
+            };
+            out.push((module.as_str(), key.as_str(), value));
+        }
+    }
+    Ok(out)
+}
+
 fn leaf_paths(table: &Table, prefix: &mut Vec<String>, out: &mut Vec<Vec<String>>) {
     for (key, value) in table {
         prefix.push(key.clone());
@@ -569,6 +699,9 @@ pub enum Op {
     Reset {
         path: String,
     },
+    /// Changes `[bubbles.<module>]` keys: an object of module ids, each
+    /// with the keys to change; `null` unsets one.
+    Arrange(Json),
     Discard,
     Edit {
         path: String,
@@ -668,17 +801,18 @@ fn actions(catalog: &Catalog) -> Json {
     Json::Object(map)
 }
 
-/// A field's ready-made commands, the ones whose program is installed.
+/// A field's ready-made values: commands whose program is installed, and
+/// plain values.
 fn installed(suggestions: &Json) -> Json {
     let kept: Vec<Json> = suggestions
         .as_array()
         .into_iter()
         .flatten()
-        .filter(|command| {
-            command
-                .get(0)
-                .and_then(Json::as_str)
-                .is_some_and(mochi_core::process::installed)
+        // A command's program must be there; a plain value, like a time
+        // format, always is.
+        .filter(|suggestion| match suggestion.get(0) {
+            Some(program) => program.as_str().is_some_and(mochi_core::process::installed),
+            None => true,
         })
         .cloned()
         .collect();
@@ -844,6 +978,10 @@ fn sections(catalog: &Catalog) -> Vec<Section> {
             source: Some("module".to_owned()),
             filter: None,
             suggestions: Vec::new(),
+            format: None,
+            entry: Vec::new(),
+            keys: None,
+            remove: None,
             optional: false,
             default: json!(mochi_core::config::DEFAULT_MODULES),
         }],
@@ -955,6 +1093,7 @@ fn available(catalog: &Catalog) -> Vec<Available> {
                 title,
                 icon: icon(id).to_owned(),
                 plugin: catalog.plugins.contains_key(id),
+                bubbles: module.bubbles(),
             }
         })
         .collect()
@@ -1048,7 +1187,11 @@ mod tests {
 
     #[test]
     fn every_source_is_one_the_panel_knows() {
-        const KNOWN: [&str; 12] = [
+        const KNOWN: [&str; 16] = [
+            "duration",
+            "place",
+            "output",
+            "launcher-provider",
             "command",
             "pam-service",
             "sound-theme",
@@ -1066,7 +1209,15 @@ mod tests {
         let mut found = 0;
         let mut files = Vec::new();
         for section in sections(&catalog) {
-            for field in &section.fields {
+            // A map's entries' options too, and where its names come from.
+            let options = section
+                .fields
+                .iter()
+                .chain(section.fields.iter().flat_map(|field| &field.entry));
+            for field in options {
+                if let Some(keys) = &field.keys {
+                    assert!(KNOWN.contains(&keys.as_str()), "{}: {keys}", field.path);
+                }
                 if let Some(source) = &field.source {
                     assert!(KNOWN.contains(&source.as_str()), "{}: {source}", field.path);
                     found += 1;
@@ -1075,7 +1226,8 @@ mod tests {
                 if let Some(filter) = &field.filter {
                     assert_eq!(field.source.as_deref(), Some("file"), "{}", field.path);
                     assert!(
-                        mochi_module_settings::files::filter(filter).is_some(),
+                        filter == "folder"
+                            || mochi_module_settings::files::filter(filter).is_some(),
                         "{}: {filter}",
                         field.path
                     );
@@ -1283,6 +1435,119 @@ mod tests {
                 _ => visit(&path),
             }
         }
+    }
+
+    #[test]
+    fn the_bubble_editor_arranges_placements() {
+        let config = temp("arrange");
+        std::fs::write(
+            &config,
+            "modules = [\"idle\", \"network\", \"battery\"]\n\n[bubbles.battery]\nshow = false\n",
+        )
+        .unwrap();
+        let (mut store, _) = Store::load(&config, None).unwrap();
+
+        // The editor knows where each module's bubbles go by default.
+        let snapshot = store.snapshot();
+        let network = snapshot["modules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|module| module["id"] == "network")
+            .unwrap();
+        assert_eq!(network["bubbles"]["area"], "right");
+        assert_eq!(network["bubbles"]["group"], "status");
+        assert_eq!(snapshot["placements"]["battery"], json!({ "show": false }));
+
+        // A drag: network to the left, first, and battery shown again.
+        let loaded = store
+            .change(&Op::Arrange(json!({
+                "network": { "area": "left", "order": 0 },
+                "battery": { "show": null, "order": 1 },
+            })))
+            .unwrap();
+        let network = &loaded.config.bubbles.modules["network"];
+        assert_eq!(
+            (network.area, network.order),
+            (Some(mochi_protocol::Area::Left), Some(0))
+        );
+        // The file hides it, so showing it again takes a setting of its own.
+        assert_eq!(loaded.config.bubbles.modules["battery"].show, Some(true));
+
+        // Only placement keys, of their kinds, and real areas.
+        for bad in [
+            json!({ "network": { "colour": "red" } }),
+            json!({ "network": { "show": "yes" } }),
+            json!({ "network": { "area": "middle" } }),
+        ] {
+            assert!(store.change(&Op::Arrange(bad.clone())).is_err(), "{bad}");
+        }
+        assert_eq!(
+            store.snapshot()["placements"]["network"],
+            json!({ "area": "left", "order": 0 })
+        );
+    }
+
+    #[test]
+    fn taking_out_an_entry_the_file_has_turns_it_off() {
+        let config = temp("take-out");
+        std::fs::write(
+            &config,
+            "modules = [\"idle\", \"launcher\", \"workspaces\"]\n\n\
+             [module.launcher.engines.crates]\nurl = \"https://crates.io/search?q=%s\"\n\n\
+             [module.launcher.providers.calculator]\nprefix = \"c\"\n\n\
+             [module.workspaces.labels]\nDP-3 = \"Main\"\n",
+        )
+        .unwrap();
+        let (mut store, _) = Store::load(&config, None).unwrap();
+        let changed = |store: &Store, parts: &[&str]| {
+            changes::get(&store.changes.config, parts).map(options::to_json)
+        };
+
+        store
+            .change(&set("config.module.launcher.engines.crates", Json::Null))
+            .unwrap();
+        assert_eq!(
+            changed(&store, &["module", "launcher", "engines", "crates"]),
+            Some(json!({ "url": "" }))
+        );
+        store
+            .change(&set(
+                "config.module.launcher.providers.calculator",
+                Json::Null,
+            ))
+            .unwrap();
+        assert_eq!(
+            changed(&store, &["module", "launcher", "providers", "calculator"]),
+            Some(json!({ "enabled": false }))
+        );
+        store
+            .change(&set("config.module.workspaces.labels.DP-3", json!("")))
+            .unwrap();
+        assert_eq!(
+            changed(&store, &["module", "workspaces", "labels", "DP-3"]),
+            Some(json!(""))
+        );
+
+        // One the panel added goes with its change, and an emptied label
+        // the file doesn't have leaves nothing behind.
+        store
+            .change(&set("config.module.launcher.engines.docs", json!({})))
+            .unwrap();
+        store
+            .change(&set("config.module.launcher.engines.docs", Json::Null))
+            .unwrap();
+        assert_eq!(
+            changed(&store, &["module", "launcher", "engines", "docs"]),
+            None
+        );
+        store
+            .change(&set("config.module.workspaces.labels.HDMI-A-1", json!("")))
+            .unwrap();
+        assert_eq!(
+            changed(&store, &["module", "workspaces", "labels", "HDMI-A-1"]),
+            None
+        );
     }
 
     #[test]

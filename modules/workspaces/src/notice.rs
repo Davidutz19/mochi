@@ -120,6 +120,8 @@ pub fn payload(notice: &Notice, state: &State, labels: &BTreeMap<String, String>
     let label = (state.outputs.len() > 1).then(|| {
         labels
             .get(&notice.output)
+            // An empty one, which the settings write to take one away, is none.
+            .filter(|label| !label.is_empty())
             .cloned()
             .unwrap_or_else(|| notice.output.clone())
     });
@@ -442,6 +444,8 @@ mod tests {
         );
 
         assert_eq!(payload(&notice, &two, &BTreeMap::new())["label"], "DP-3");
+        let emptied = BTreeMap::from([("DP-3".to_owned(), String::new())]);
+        assert_eq!(payload(&notice, &two, &emptied)["label"], "DP-3");
 
         let one = state(&["DP-3"], &[("DP-3", "1", "a")]);
         assert_eq!(payload(&notice, &one, &labels)["label"], Value::Null);

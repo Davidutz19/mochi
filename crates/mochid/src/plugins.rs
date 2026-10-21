@@ -49,8 +49,9 @@ const BACKEND_FD: i32 = 3;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Module ids live as long as the daemon. Plugin ids come from files, so
-/// each distinct one is leaked once and reused after.
+/// Module ids live as long as the daemon. Plugin ids, and the bubble groups
+/// their manifests name, come from files, so each distinct one is leaked
+/// once and reused after.
 pub fn intern(id: &str) -> &'static str {
     static IDS: Mutex<Vec<&'static str>> = Mutex::new(Vec::new());
     let mut ids = IDS.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -215,6 +216,19 @@ impl Module for PluginModule {
     fn settings_schema(&self) -> Option<Value> {
         let defaults = self.defaults.as_ref()?;
         Some(schema(defaults, &self.manifest.settings, ""))
+    }
+
+    /// What its manifest's `[bubbles]` says.
+    fn bubbles(&self) -> Option<mochi_core::BubbleHome> {
+        let declared = self.manifest.bubbles.as_ref()?;
+        let mut home = mochi_core::BubbleHome::new(declared.area).order(declared.order);
+        if let Some(group) = &declared.group {
+            home = home.group(intern(group));
+        }
+        if declared.wide {
+            home = home.wide();
+        }
+        Some(home)
     }
 
     fn contributions(&self) -> Vec<ContributionSpec> {
@@ -1026,8 +1040,11 @@ mod tests {
             "{}",
             refresh.description
         );
-        let bubble = field("bubble");
-        assert_eq!((bubble.kind, bubble.optional), (Kind::Choice, true));
+        // Its bubble goes where its manifest's [bubbles] says.
+        assert_eq!(
+            plugin.bubbles(),
+            Some(mochi_core::BubbleHome::new(mochi_protocol::Area::Right))
+        );
     }
 
     fn example(name: &str) -> PluginModule {

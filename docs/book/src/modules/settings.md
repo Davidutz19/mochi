@@ -33,6 +33,7 @@ When `changes.toml` has an option that no longer fits, after an update renamed i
 | `open [section]`, `toggle`, `close` | The panel. |
 | `set <path> <json>` | Sets an option, like `set theme.colors.accent '"#30d158"'`. `null` unsets it. |
 | `reset <path>` | Undoes the change to an option, or to each option of a section, back to what the files say. |
+| `arrange <json>` | Moves, sorts, shows or hides modules' bubbles, as the bubble editor does: `arrange '{"media": {"area": "left", "order": 0}}'`. `null` puts a key back to the module's own. |
 | `discard` | Drops every change. |
 | `preview <path> <json>`, `keep`, `drop` | Tries an option without keeping it, then keeps or drops what's being tried. |
 | `try <json>` | Tries whole tables of settings, like `{"config": {...}, "theme": {...}}`, in place of what was being tried; `mochi bento try` sends it. |

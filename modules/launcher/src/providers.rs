@@ -32,8 +32,10 @@ pub const DEFAULT_TIMEOUT_MS: u64 = 2000;
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Engine {
+    /// The name its results show it by.
     pub title: String,
-    /// `%s` is where the query goes. Empty removes the engine.
+    /// The search's address, with %s where the words you type go. Empty
+    /// takes the engine out.
     pub url: String,
 }
 
@@ -108,19 +110,23 @@ pub fn web_url(url: &str, query: &str) -> String {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct ProviderSettings {
-    /// `false` turns it off.
+    /// Off, it gives no results.
+    #[schemars(extend("default" = true))]
     pub enabled: Option<bool>,
-    /// Replaces its prefix; `""` asks it on every query.
+    /// What a search starts with to ask only it. Empty asks it on every
+    /// search.
     pub prefix: Option<String>,
     /// Lower shows first. Apps are at 0.
     pub order: Option<i32>,
-    /// A script provider: the program and its arguments. The query comes
-    /// after them, and in `MOCHI_QUERY`.
+    /// For a script provider: the program, and its arguments. What you
+    /// type comes after them.
     pub command: Vec<String>,
-    /// Run with a result's `id` after the user picks it.
+    /// For a script provider: what runs when you pick one of its results,
+    /// with the result's id after it.
     pub pick: Vec<String>,
     /// The section heading over its results.
     pub title: Option<String>,
+    /// For a script provider: how long it may take, in milliseconds.
     pub timeout_ms: Option<u64>,
 }
 

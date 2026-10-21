@@ -123,7 +123,7 @@ PanelWindow {
     mask: covering && !DragOut.active ? everywhere : shapes
 
     property Region shapes: Region {
-        regions: [root.barMask, root.islandMask, ...pillMasks.instances]
+        regions: [root.barMask, root.islandMask, ...pillMasks.instances, ...spanMasks.instances]
     }
 
     // The bar takes clicks all along it: there's no window under it, since
@@ -261,7 +261,7 @@ PanelWindow {
     // Blur through ext-background-effect-v1. Compositors without the protocol
     // show everything without blur.
     BackgroundEffect.blurRegion: Region {
-        regions: [root.barBlur, root.islandBlur, ...pillBlurs.instances]
+        regions: [root.barBlur, root.islandBlur, ...pillBlurs.instances, ...spanBlurs.instances]
     }
 
     property IslandRegion islandMask: IslandRegion {
@@ -290,6 +290,22 @@ PanelWindow {
         }
     }
 
+    Variants {
+        id: spanMasks
+
+        model: root.spans
+        SpanRegion {}
+    }
+
+    Variants {
+        id: spanBlurs
+
+        model: root.spans
+        SpanRegion {
+            inset: 1
+        }
+    }
+
     // Under the bubbles and the island, which it draws the background of.
     Bar {
         anchors.fill: parent
@@ -312,11 +328,104 @@ PanelWindow {
     // Named apart from the areas' own `island` property.
     readonly property Item islandItem: island
 
+    // The areas set to "island" that have bubbles to merge. The island's
+    // shape reaches out to them wherever they are, across the gap to the
+    // screen's sides too, and takes in whatever sits on the way.
+    readonly property var order: ["left", "center-left", "center", "center-right", "right"]
+    readonly property var joined: order.filter(name => areas[name].arrangement === "island" && areas[name].hasMerged)
+    // 1 while the island is part of a Span, animated: its own background
+    // fades into the Span's.
+    property real islandMerged: joined.length > 0 && island.shown ? 1 : 0
+
+    Behavior on islandMerged {
+        NumberAnimation {
+            duration: Theme.duration(350)
+            easing.type: Easing.OutCubic
+        }
+    }
+
+    readonly property list<Item> spans: [islandSpan, leftSpan, centerLeftSpan, centerSpan, centerRightSpan, rightSpan]
+
+    component MergedShape: Span {
+        anchors.fill: parent
+        stripNear: root.margin
+        attached: root.attached
+        leftSide: start < 0.5 ? root.attached * (1 - root.barred) : 0
+        rightSide: end > root.width - 0.5 ? root.attached * (1 - root.barred) : 0
+        flipY: root.atBottom
+        opacity: shown ? 1 - root.barred : 0
+
+        // Whether it draws, apart from fading.
+        property bool shown: false
+
+        Behavior on opacity {
+            NumberAnimation {
+                duration: Theme.duration(350)
+                easing.type: Easing.OutCubic
+            }
+        }
+    }
+
+    // Around the island and the areas that join it.
+    MergedShape {
+        id: islandSpan
+
+        readonly property var members: root.joined.map(name => root.areas[name])
+
+        island: root.islandItem
+        shown: members.length > 0
+        start: Math.min(...(island.shown ? [island.x] : []), ...members.map(area => area.x + area.spanStart))
+        end: Math.max(...(island.shown ? [island.x + island.width] : []), ...members.map(area => area.x + area.spanEnd))
+    }
+
+    // Around each merged area that doesn't join the island.
+    component AreaShape: MergedShape {
+        required property BubbleArea area
+
+        shown: area.hasMerged && !area.absorbed && !root.joined.includes(area.area)
+        start: area.x + area.spanStart
+        end: area.x + area.spanEnd
+    }
+
+    AreaShape {
+        id: leftSpan
+
+        area: left
+    }
+
+    AreaShape {
+        id: centerLeftSpan
+
+        area: centerLeft
+    }
+
+    AreaShape {
+        id: centerSpan
+
+        area: center
+    }
+
+    AreaShape {
+        id: centerRightSpan
+
+        area: centerRight
+    }
+
+    AreaShape {
+        id: rightSpan
+
+        area: right
+    }
+
     component Area: BubbleArea {
         island: root.islandItem
         window: root
         attached: root.attached
         flat: root.barred
+        // Inside the island's shape without joining it, like the area
+        // between the island and one that joins it: its pills draw on that
+        // shape too.
+        absorbed: islandSpan.shown && !root.joined.includes(area) && occupied && x >= islandSpan.start - 0.5 && x + width <= islandSpan.end + 0.5
         atBottom: root.atBottom
         y: root.atBottom ? root.edgeY - height : root.edgeY
     }
@@ -365,7 +474,7 @@ PanelWindow {
         y: root.host.y + root.host.slot.y
         attached: root.attached
         sideAttached: root.host.onSide ? root.attached * (1 - root.barred) : 0
-        flat: root.barred
+        flat: Math.max(root.barred, root.islandMerged)
         atBottom: root.atBottom
         atRight: Theme.islandArea === "right"
         overlay: overlay

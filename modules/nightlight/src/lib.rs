@@ -72,8 +72,10 @@ struct Settings {
     /// When it turns on by itself.
     schedule: Schedule,
     /// When night starts, with `schedule = "times"`.
+    #[schemars(extend("x-format" = "time"))]
     start: String,
     /// When night ends, with `schedule = "times"`.
+    #[schemars(extend("x-format" = "time"))]
     end: String,
     /// Where you are, with `schedule = "sun"`: north is positive.
     #[schemars(range(min = -90, max = 90))]

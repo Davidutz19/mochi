@@ -3,12 +3,14 @@
 [module.nightlight]
 # How warm, in kelvin, from 1000 to 6000. Daylight is 6500.
 # temperature = 4000
-# When it turns on by itself: "manual" only by hand, "times" from `start` to
-# `end`, or "sun" from sunset to sunrise at `latitude` and `longitude`.
+# When it turns on by itself: Manual only by hand, Times between the start
+# and the end below, or Sun from sunset to sunrise where you are.
 # schedule = "manual"
+# When night starts, with the times schedule.
 # start = "20:00"
+# When night ends, with the times schedule.
 # end = "07:00"
-# Where you are, for "sun": north and east are positive.
+# Where you are, for the Sun schedule: north and east are positive.
 # latitude = 0.0
 # longitude = 0.0
 # How long a schedule takes to warm up or cool down, in minutes.

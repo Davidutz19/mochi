@@ -23,8 +23,8 @@ use std::time::Duration;
 
 use include_dir::{Dir, include_dir};
 use mochi_core::{
-    ActionSpec, Area, Assets, BoxFuture, BubbleId, BubbleSpec, ContributionSpec, Module, ModuleCtx,
-    ModuleError, ModuleEvent, Priority,
+    ActionSpec, Area, Assets, BoxFuture, BubbleHome, BubbleId, BubbleSpec, ContributionSpec,
+    Module, ModuleCtx, ModuleError, ModuleEvent, Priority,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -55,9 +55,16 @@ impl Default for Settings {
     }
 }
 
+/// Where its bubbles go unless the user moves them.
+const BUBBLES: BubbleHome = BubbleHome::new(Area::CenterRight).order(-8).wide();
+
 impl Module for Privacy {
     fn id(&self) -> &'static str {
         "privacy"
+    }
+
+    fn bubbles(&self) -> Option<BubbleHome> {
+        Some(BUBBLES)
     }
 
     fn assets(&self) -> Assets {
@@ -203,9 +210,8 @@ fn show(ctx: &ModuleCtx, bubble: &mut Option<BubbleId>, users: &Users, before: &
     let spec = BubbleSpec::new("Dot")
         .key("dot")
         .wide("Wide")
-        .area(Area::CenterRight)
         // Beside the recording and sharing bubbles, which come first.
-        .order(-8)
+        .at(&BUBBLES)
         .priority(Priority::HIGH)
         .payload(users.payload());
     // A new app listening is news; one leaving or a mute isn't.

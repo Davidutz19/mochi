@@ -92,17 +92,46 @@ pub struct Bubble {
     /// more with a `tooltip` property of its own.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tooltip: Option<String>,
+    /// Keeps a pill of its own in an area that merges its bubbles, beside
+    /// the merged shape instead of in it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub apart: bool,
 }
 
 fn is_zero<T: Default + PartialEq>(value: &T) -> bool {
     *value == T::default()
 }
 
-/// Bubbles stacking, one per area, from `[bubbles] stack`.
+/// How stacked areas behave, when any area stacks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Stacking {
     /// How long a bubble with news stays in front, in milliseconds.
     pub news_ms: u64,
+}
+
+/// How an area draws its bubbles: `[bubbles] left = "merged"`.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, schemars::JsonSchema,
+)]
+#[serde(rename_all = "kebab-case")]
+pub enum Arrangement {
+    /// A pill for each bubble, or for each group.
+    #[default]
+    Apart,
+    /// One shape around all of the area's bubbles.
+    Merged,
+    /// One bubble in front, the others peeking out behind it.
+    Stacked,
+    /// One shape around the bubbles and the island, when the island sits in
+    /// this area or next to it; merged otherwise.
+    Island,
+}
+
+/// An area that doesn't lay its bubbles apart.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AreaArrangement {
+    pub area: Area,
+    pub arrangement: Arrangement,
 }
 
 /// How many bubbles an area has beyond its maximum.

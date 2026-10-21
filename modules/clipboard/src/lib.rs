@@ -25,9 +25,9 @@ use std::time::{Duration, SystemTime};
 
 use include_dir::{Dir, include_dir};
 use mochi_core::{
-    ActionSpec, ActivityId, ActivitySpec, ArgSpec, Assets, BoxFuture, BubbleId, BubbleSpec,
-    CallError, ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError, ModuleEvent,
-    Priority,
+    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Assets, BoxFuture, BubbleHome, BubbleId,
+    BubbleSpec, CallError, ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError,
+    ModuleEvent, Priority,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -108,9 +108,16 @@ impl Default for Settings {
     }
 }
 
+/// Where its bubbles go unless the user moves them.
+const BUBBLES: BubbleHome = BubbleHome::new(Area::CenterRight).order(10);
+
 impl Module for Clipboard {
     fn id(&self) -> &'static str {
         "clipboard"
+    }
+
+    fn bubbles(&self) -> Option<BubbleHome> {
+        Some(BUBBLES)
     }
 
     fn assets(&self) -> Assets {
@@ -502,7 +509,7 @@ impl State {
         tracing::info!(paused, "clipboard history");
         match (paused, self.bubble) {
             (true, None) => {
-                let spec = BubbleSpec::new("Paused").key("paused").order(10);
+                let spec = BubbleSpec::new("Paused").key("paused").at(&BUBBLES);
                 self.bubble = Some(ctx.show_bubble(spec));
             }
             (false, Some(bubble)) => {

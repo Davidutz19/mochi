@@ -23,8 +23,9 @@ use std::time::Duration;
 
 use include_dir::{Dir, include_dir};
 use mochi_core::{
-    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Assets, BoxFuture, BubbleId, BubbleSpec,
-    ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError, ModuleEvent, Priority,
+    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Assets, BoxFuture, BubbleHome, BubbleId,
+    BubbleSpec, ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError, ModuleEvent,
+    Priority,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -96,9 +97,16 @@ impl Settings {
     }
 }
 
+/// Where its bubbles go unless the user moves them.
+const BUBBLES: BubbleHome = BubbleHome::new(Area::CenterRight).order(-7);
+
 impl Module for DropModule {
     fn id(&self) -> &'static str {
         "drop"
+    }
+
+    fn bubbles(&self) -> Option<BubbleHome> {
+        Some(BUBBLES)
     }
 
     fn assets(&self) -> Assets {
@@ -452,8 +460,7 @@ impl State {
     fn bubble_spec(&self) -> BubbleSpec {
         BubbleSpec::new("Progress")
             .key("progress")
-            .area(Area::CenterRight)
-            .order(-7)
+            .at(&BUBBLES)
             .payload(self.working.clone())
     }
 

@@ -7,5 +7,5 @@
 # come first in the launcher before you type, and rank a little higher in
 # searches.
 # recent = 24
-# The most results the launcher's `:` search lists, at most 50.
+# The most results the launcher lists for an emoji search, at most 50.
 # max_results = 50

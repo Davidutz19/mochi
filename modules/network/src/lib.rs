@@ -14,7 +14,6 @@
 //!
 //! ```toml
 //! [module.network]
-//! bubble = true    # the connection's bubble
 //! notices = true   # a notice on the island when the connection changes
 //! ```
 
@@ -27,9 +26,9 @@ use std::time::Duration;
 
 use include_dir::{Dir, include_dir};
 use mochi_core::{
-    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Assets, BoxFuture, BubbleId, BubbleSpec,
-    CallError, ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError, ModuleEvent,
-    Priority,
+    ActionSpec, ActivityId, ActivitySpec, Area, ArgSpec, Assets, BoxFuture, BubbleHome, BubbleId,
+    BubbleSpec, CallError, ContributionSpec, Module, ModuleCommand, ModuleCtx, ModuleError,
+    ModuleEvent, Priority,
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -51,22 +50,25 @@ pub struct Network;
 #[derive(Debug, Deserialize, PartialEq, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 struct Settings {
-    bubble: bool,
     notices: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self {
-            bubble: true,
-            notices: true,
-        }
+        Self { notices: true }
     }
 }
+
+/// Where its bubbles go unless the user moves them.
+const BUBBLES: BubbleHome = BubbleHome::new(Area::Right).group("status");
 
 impl Module for Network {
     fn id(&self) -> &'static str {
         "network"
+    }
+
+    fn bubbles(&self) -> Option<BubbleHome> {
+        Some(BUBBLES)
     }
 
     fn assets(&self) -> Assets {
@@ -262,13 +264,12 @@ impl State {
     fn publish(&mut self, ctx: &ModuleCtx) {
         let payload = model::payload(self.snapshot.as_ref(), self.airplane.is_some());
         ctx.publish_state(payload.clone());
-        match (self.settings.bubble, &self.snapshot) {
-            (true, Some(_)) => {
+        match &self.snapshot {
+            Some(_) => {
                 let status = payload["status"].clone();
                 let spec = BubbleSpec::new("Bubble")
                     .key("status")
-                    .area(Area::Right)
-                    .group("status")
+                    .at(&BUBBLES)
                     .payload(status.clone());
                 // Another network, or none, is news; the same one isn't.
                 let spec = if self.bubble.is_some() && status != self.shown_status {
