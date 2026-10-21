@@ -8,7 +8,9 @@ A row of app icons in one bubble: the apps you pin, in your order, then the ones
 - The wheel goes through the app's windows.
 - Resting the pointer on an icon shows the app's name, with its window's title or how many windows it has.
 
-The bubble goes in the `left` area unless you move it in Settings › Bubbles. For a taskbar along the bottom, set `mode = "bar"` and `anchor = "bottom"` under `[layout]` in `theme.toml`.
+The bubble goes in the `left` area unless you move it in Settings › Bubbles. It keeps a pill of its own even in an area that merges its bubbles; turn on Merge in its bubble options, or set `merge = true` under `[bubbles.dock]`, to put it in the shape. For a taskbar along the bottom, set `mode = "bar"` and `anchor = "bottom"` under `[layout]` in `theme.toml`.
+
+The icons fill the bubble's height, which is Layout › Idle height (`idle_height` under `[layout]`): 18 pixels at the default 34, about 40 at 56. Every bubble and the idle island get that height too.
 
 The [launcher module](launcher.md) starts the apps, so it has to be on for the dock to start them. The windows come from wlr-foreign-toplevel-management, which Hyprland, Sway and niri have. Without it, the dock shows the pinned apps only, and still starts them.
 

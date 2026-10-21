@@ -229,6 +229,9 @@ impl Module for PluginModule {
         if declared.wide {
             home = home.wide();
         }
+        if declared.apart {
+            home = home.apart();
+        }
         Some(home)
     }
 

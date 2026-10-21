@@ -152,7 +152,7 @@ impl Default for Views {
 }
 
 /// `[bubbles]`: where its bubbles go by default. Its backend's
-/// `show_bubble` should say the same area, group and order.
+/// `show_bubble` should say the same area, group, order and `apart`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManifestBubbles {
@@ -166,6 +166,10 @@ pub struct ManifestBubbles {
     /// It has a wide view with text, which `wide = true` shows.
     #[serde(default)]
     pub wide: bool,
+    /// It keeps a pill of its own in an area that merges its bubbles, as
+    /// its backend's `show_bubble` says with `apart`.
+    #[serde(default)]
+    pub apart: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
@@ -459,6 +463,7 @@ toplevels = true
 area = "center-right"
 group = "focus"
 wide = true
+apart = true
 
 [[actions]]
 name = "start"
@@ -505,7 +510,10 @@ options = { span = 2 }
         let bubbles = manifest.bubbles.unwrap();
         assert_eq!(bubbles.area, mochi_protocol::Area::CenterRight);
         assert_eq!(bubbles.group.as_deref(), Some("focus"));
-        assert_eq!((bubbles.order, bubbles.wide), (0, true));
+        assert_eq!(
+            (bubbles.order, bubbles.wide, bubbles.apart),
+            (0, true, true)
+        );
     }
 
     #[test]

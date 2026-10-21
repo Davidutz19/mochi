@@ -53,7 +53,7 @@ Item {
                 "group": placed?.group ?? home?.group ?? null,
                 "wide": placed?.wide === true,
                 "hasWide": home?.wide === true || showing?.wide === true,
-                "merge": placed?.merge !== false,
+                "merge": placed?.merge ?? home?.apart !== true,
                 "live": showing !== null
             });
         }
@@ -402,7 +402,7 @@ Item {
                 trailing: Switch {
                     anchors.verticalCenter: parent.verticalCenter
                     checked: root.current?.merge ?? true
-                    onToggled: checked => root.set(root.current.id, "merge", checked ? null : false)
+                    onToggled: checked => root.set(root.current.id, "merge", checked === (root.current.home?.apart !== true) ? null : checked)
                 }
             }
 

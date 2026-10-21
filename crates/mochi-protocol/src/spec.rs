@@ -245,6 +245,9 @@ pub struct BubbleHome {
     pub order: i32,
     /// It has a wide view with text, which `wide = true` shows.
     pub wide: bool,
+    /// It keeps a pill of its own in an area that merges its bubbles,
+    /// unless the user sets `merge = true`.
+    pub apart: bool,
 }
 
 impl BubbleHome {
@@ -255,6 +258,7 @@ impl BubbleHome {
             group: None,
             order: 0,
             wide: false,
+            apart: false,
         }
     }
 
@@ -273,6 +277,12 @@ impl BubbleHome {
     /// Has a wide view with text.
     pub const fn wide(mut self) -> Self {
         self.wide = true;
+        self
+    }
+
+    /// Keeps a pill of its own in an area that merges its bubbles.
+    pub const fn apart(mut self) -> Self {
+        self.apart = true;
         self
     }
 }
@@ -306,6 +316,10 @@ pub struct BubbleSpec {
     /// Showing it again over the one with the same key is news: a stack
     /// brings it to the front for a while. A new bubble always is.
     pub news: bool,
+    /// Keeps a pill of its own in an area that merges its bubbles, unless
+    /// the user sets `merge = true`.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub apart: bool,
     /// What the pointer resting on it shows beside it. A view can say more
     /// with a `tooltip` property, worked out from its payload.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -331,6 +345,7 @@ impl BubbleSpec {
             order: 0,
             priority: Priority::NORMAL,
             news: false,
+            apart: false,
             tooltip: None,
         }
     }
@@ -377,12 +392,20 @@ impl BubbleSpec {
         self
     }
 
-    /// Where its module's bubbles go by default: `home`'s area, group and
-    /// order.
+    /// Keeps a pill of its own in an area that merges its bubbles, unless
+    /// the user sets `merge = true`.
+    pub fn apart(mut self) -> Self {
+        self.apart = true;
+        self
+    }
+
+    /// Where its module's bubbles go by default: `home`'s area, group,
+    /// order and whether it merges.
     pub fn at(mut self, home: &BubbleHome) -> Self {
         self.area = home.area;
         self.group = home.group.map(str::to_owned);
         self.order = home.order;
+        self.apart = home.apart;
         self
     }
 

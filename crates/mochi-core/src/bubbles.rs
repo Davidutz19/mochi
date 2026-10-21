@@ -1,6 +1,6 @@
 //! Keeps the bubbles and decides where each one goes.
 //!
-//! A module says which area a bubble wants, which group it joins and its
+//! A module says which  a bubble wants, which group it joins and its
 //! order. The user's `[bubbles.<module>]` settings override any of those for
 //! all of a module's bubbles. Within an area, bubbles sort from left to
 //! right by `order`, then by priority, then by age. A group takes
@@ -36,7 +36,8 @@ pub struct Placement {
     /// still shows them as far as it knows.
     pub show: Option<bool>,
     /// `false` keeps the module's bubbles in pills of their own, beside the
-    /// shape of an area that merges its bubbles.
+    /// shape of an area that merges its bubbles, and `true` puts a module's
+    /// that keep their own, like the dock's, into it.
     pub merge: Option<bool>,
 }
 
@@ -323,7 +324,9 @@ impl Bubbles {
                 .wide
                 .as_deref()
                 .filter(|_| placement.and_then(|placement| placement.wide) == Some(true)),
-            apart: placement.and_then(|placement| placement.merge) == Some(false),
+            apart: placement
+                .and_then(|placement| placement.merge)
+                .map_or(entry.spec.apart, |merge| !merge),
         }
     }
 
@@ -569,6 +572,27 @@ mod tests {
             views,
             [("Wide", true), ("Bubble", false), ("Bubble", false)]
         );
+    }
+
+    #[test]
+    fn a_module_keeps_its_own_pill_unless_the_user_merges_it() {
+        let merge = |merge| Placement {
+            merge: Some(merge),
+            ..Placement::default()
+        };
+        let placements = BTreeMap::from([
+            ("merged-dock".to_owned(), merge(true)),
+            ("bt".to_owned(), merge(false)),
+        ]);
+        let mut bubbles = Bubbles::new(placements, None);
+        bubbles.show(BubbleId(1), "dock", spec(Area::Left).apart());
+        bubbles.show(BubbleId(2), "merged-dock", spec(Area::Left).apart());
+        bubbles.show(BubbleId(3), "bt", spec(Area::Left));
+        bubbles.show(BubbleId(4), "clock", spec(Area::Left));
+
+        let (snapshot, _) = bubbles.snapshot();
+        let apart: Vec<_> = snapshot.iter().map(|bubble| bubble.apart).collect();
+        assert_eq!(apart, [true, false, true, false]);
     }
 
     #[test]

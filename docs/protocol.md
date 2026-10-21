@@ -175,7 +175,7 @@ The UI loads `root:/modules/<module>/<view>.qml` and passes `payload` to it. `ac
 }
 ```
 
-Consecutive bubbles in the same area with the same `group` share one pill. A bubble's view is small, about 26 pixels, and drawn in a circle, unless `wide` is `true`: then the user asked for the module's wide view, drawn in a pill. `key` and `group` are only present when set, and `wide` only when true. As with activities, a bubble with the same `module`, `key` and `view` as one already drawn continues it: the UI updates its payload in place. `overflow` names the areas that left bubbles out, and how many; it is left out when nothing was.
+Consecutive bubbles in the same area with the same `group` share one pill. A bubble's view is small, about 26 pixels, and drawn in a circle, unless `wide` is `true`: then the user asked for the module's wide view, drawn in a pill. `key` and `group` are only present when set, and `wide` and `apart` only when true: `apart` keeps the bubble in a pill of its own in an area that merges its bubbles. As with activities, a bubble with the same `module`, `key` and `view` as one already drawn continues it: the UI updates its payload in place. `overflow` names the areas that left bubbles out, and how many; it is left out when nothing was.
 
 ### Contributions
 
@@ -261,7 +261,7 @@ From then on, either side may send at any time. The backend picks the numbers of
 | `pointer_output` | `id` | The output under the pointer; answered with `compositor_result` |
 | `toplevel` | `id`, `toplevel`, `action` | Focuses (`activate`), closes (`close`) or minimizes (`minimize`) a window from `toplevels`; answered with `compositor_result` |
 
-An activity `spec` needs only `compact`, the view's name. The rest are optional: `expanded`, `expand_for_ms`, `payload`, `priority` (0 to 255, 50 by default), `timeout_ms`, `interruptible` (true by default), `same_priority` (`queue` or `stack`), `modal`, `overlay`, `passive`, `fleeting`, `output` and `key`. A bubble `spec` needs only `view`; the rest are `wide`, `payload`, `area`, `group`, `order`, `priority`, `news` and `key`. They mean what the builder methods of the same name in `mochi-sdk` do.
+An activity `spec` needs only `compact`, the view's name. The rest are optional: `expanded`, `expand_for_ms`, `payload`, `priority` (0 to 255, 50 by default), `timeout_ms`, `interruptible` (true by default), `same_priority` (`queue` or `stack`), `modal`, `overlay`, `passive`, `fleeting`, `output` and `key`. A bubble `spec` needs only `view`; the rest are `wide`, `payload`, `area`, `group`, `order`, `priority`, `news`, `apart` and `key`. They mean what the builder methods of the same name in `mochi-sdk` do.
 
 ### Daemon to backend
 

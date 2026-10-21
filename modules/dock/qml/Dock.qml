@@ -36,8 +36,12 @@ Item {
         return perMonitor ? windows.filter(window => window.outputs.includes(output)) : windows;
     }
 
+    // The pill's height less a 4 pixel inset on each side: a taller bar,
+    // Layout's idle_height, gives bigger icons, 18 pixels at the default 34.
+    readonly property real iconSize: implicitHeight - 8
+
     implicitWidth: row.implicitWidth
-    implicitHeight: 26
+    implicitHeight: Math.max(26, Theme.idleHeight - 8)
 
     Row {
         id: row
@@ -62,7 +66,7 @@ Item {
                         starting = false;
                 }
 
-                width: 30
+                width: root.iconSize + 12
                 height: root.implicitHeight
 
                 Timer {
@@ -93,7 +97,7 @@ Item {
                     anchors.top: parent.top
                     anchors.topMargin: 1 // design: a pixel off the edge, as the dots below are
                     icon: slot.modelData.icon
-                    size: 18
+                    size: root.iconSize
                     scale: mouse.pressed ? 0.88 : 1
 
                     Behavior on scale {

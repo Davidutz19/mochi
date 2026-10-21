@@ -1,3 +1,4 @@
+| `apart` | `false` | It keeps a pill of its own in an area that merges its bubbles, so the editor shows Merge off until the user turns it on. Its `show_bubble` should say `apart` too. |
 # Plugin manifest
 
 `mochi-plugin.toml` sits at the root of a plugin and says what it is, what it runs and what it offers. mochid reads it when it starts and on `mochi reload`; `mochi plugins install` reads it before installing, to show you. A key the manifest doesn't know is an error, so typos don't go unnoticed.
@@ -74,7 +75,7 @@ The asset is a tar archive, compressed or not, holding the plugin as it should b
 
 ## `[bubbles]`
 
-Where the plugin's bubbles go unless the user moves them. Settings › Bubbles shows the plugin there before its first bubble appears; without this table, the plugin shows up there only once it has shown one. Say the same area, group and order the backend's `show_bubble` gives.
+Where the plugin's bubbles go unless the user moves them. Settings › Bubbles shows the plugin there before its first bubble appears; without this table, the plugin shows up there only once it has shown one. Say the same area, group, order and `apart` the backend's `show_bubble` gives.
 
 | Key | Default | |
 |---|---|---|

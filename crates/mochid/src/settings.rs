@@ -345,7 +345,8 @@ impl Store {
     }
 
     /// What `[bubbles.<module>] <key>` is when nothing sets it: the
-    /// module's own placement for its area, group and order.
+    /// module's own placement for its area, group and order, and whether
+    /// it merges.
     fn placement_default(&self, module: &str, key: &str) -> Option<Value> {
         let home = self
             .available
@@ -353,7 +354,8 @@ impl Store {
             .find(|entry| entry.id == module)
             .and_then(|entry| entry.bubbles);
         match key {
-            "show" | "merge" => Some(Value::Boolean(true)),
+            "show" => Some(Value::Boolean(true)),
+            "merge" => Some(Value::Boolean(!home.is_some_and(|home| home.apart))),
             "wide" => Some(Value::Boolean(false)),
             "area" => serde_json::to_value(home?.area)
                 .ok()

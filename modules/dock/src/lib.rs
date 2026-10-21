@@ -33,8 +33,9 @@ use crate::apps::{Entry, Step};
 
 static QML: Dir = include_dir!("$CARGO_MANIFEST_DIR/qml");
 
-/// The left end, where a taskbar starts.
-const BUBBLES: BubbleHome = BubbleHome::new(Area::Left);
+/// The left end, where a taskbar starts, in a pill of its own even where
+/// the area merges its bubbles: one row of icons reads as a dock.
+const BUBBLES: BubbleHome = BubbleHome::new(Area::Left).apart();
 
 #[derive(Debug, Default)]
 pub struct Dock;
