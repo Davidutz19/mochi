@@ -2,6 +2,8 @@
 
 A row of app icons in one bubble: the apps you pin, in your order, then the ones running that aren't pinned, in the order they started. An app keeps its place while focus moves between apps. Under each icon there's a dot for each open window, up to three. The app with focus has its dots joined into one pill, the way the workspaces indicator stretches the active workspace.
 
+A thin line parts the pinned apps from the others. Turn off Separator to drop it. A button with nine dots at the end opens the launcher's app list, like the button at the end of GNOME's dash. Show apps moves it to the start of the dock or turns it off. It needs the launcher module, and stays dimmed without it.
+
 - A click on an app that isn't running starts it, and the icon dims and brightens until its first window opens.
 - A click on a running app focuses the window it used last. If that app already has focus, a click goes to its next window, or minimizes its only one. Hyprland and niri don't minimize windows, so there the click does nothing.
 - A middle click starts another window of the app.

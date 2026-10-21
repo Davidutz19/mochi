@@ -1,7 +1,8 @@
 //! Dock: the pinned apps and the running ones as a row of icons in one
-//! bubble. A click starts an app, focuses its window, or goes to its next
-//! window; a middle click starts another one; the wheel goes through its
-//! windows. Under each icon, a dot for each open window.
+//! bubble, with a line between them and a button that opens the launcher.
+//! A click starts an app, focuses its window, or goes to its next window;
+//! a middle click starts another one; the wheel goes through its windows.
+//! Under each icon, a dot for each open window.
 //!
 //! Windows come from wlr-foreign-toplevel-management. Without it, the dock
 //! shows the pinned apps only, and starts them.
@@ -13,6 +14,8 @@
 //! pinned = ["firefox", "org.gnome.Nautilus"]
 //! running = true      # the running apps that aren't pinned too
 //! per_monitor = false # each monitor's dock shows its own windows only
+//! separator = true   # a line between the pinned apps and the others
+//! show_apps = "end"   # a button that opens the launcher: "start", "end" or "off"
 //! ```
 
 mod apps;
@@ -26,7 +29,7 @@ use mochi_core::{
     ActionSpec, Area, ArgSpec, Assets, BoxFuture, BubbleHome, BubbleId, BubbleSpec, CallError,
     Module, ModuleCommand, ModuleCtx, ModuleError, ModuleEvent,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::apps::{Entry, Step};
@@ -47,6 +50,20 @@ struct Settings {
     pinned: Vec<String>,
     running: bool,
     per_monitor: bool,
+    separator: bool,
+    show_apps: ShowApps,
+}
+
+/// Where the button that opens the launcher goes, as GNOME's dash has one.
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, schemars::JsonSchema,
+)]
+#[serde(rename_all = "lowercase")]
+enum ShowApps {
+    Start,
+    #[default]
+    End,
+    Off,
 }
 
 impl Default for Settings {
@@ -55,6 +72,8 @@ impl Default for Settings {
             pinned: Vec::new(),
             running: true,
             per_monitor: false,
+            separator: true,
+            show_apps: ShowApps::End,
         }
     }
 }
@@ -189,13 +208,19 @@ impl State {
             return;
         }
         self.shown = shown;
-        if self.shown.is_empty() {
+        // The launcher's button keeps the dock up with no apps in it.
+        if self.shown.is_empty() && settings.show_apps == ShowApps::Off {
             if let Some(bubble) = self.bubble.take() {
                 ctx.hide_bubble(bubble);
             }
             return;
         }
-        let payload = json!({ "apps": self.shown, "per_monitor": settings.per_monitor });
+        let payload = json!({
+            "apps": self.shown,
+            "per_monitor": settings.per_monitor,
+            "separator": settings.separator,
+            "show_apps": settings.show_apps,
+        });
         match self.bubble {
             Some(bubble) => ctx.update_bubble(bubble, payload),
             None => {

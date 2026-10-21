@@ -9,3 +9,8 @@
 # running = true
 # Each monitor's dock shows only the windows on that monitor.
 # per_monitor = false
+# A thin line between the pinned apps and the other running ones.
+# separator = true
+# A button that opens the launcher's app list, at the start of the dock
+# or its end.
+# show_apps = "end"
