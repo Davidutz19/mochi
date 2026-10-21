@@ -227,6 +227,9 @@ pub struct Toplevel {
     pub title: String,
     pub app_id: String,
     pub focused: bool,
+    pub minimized: bool,
+    /// The outputs it shows on, by name.
+    pub outputs: Vec<String>,
 }
 
 /// Wakes on every new snapshot; see [`Compositor::subscribe`].
@@ -237,6 +240,8 @@ pub(crate) enum Action {
     ActivateWorkspace(WorkspaceId),
     AssumeCaptures(Vec<String>),
     ActivateToplevel(u32),
+    CloseToplevel(u32),
+    MinimizeToplevel(u32),
     Click { output: String, click: Click },
 }
 
@@ -306,11 +311,28 @@ impl Compositor {
     /// Focuses a window from [`Compositor::toplevels`], switching to its
     /// workspace.
     pub fn activate_toplevel(&self, id: u32) -> Result<(), CompositorError> {
+        self.on_toplevel(id, Action::ActivateToplevel(id))
+    }
+
+    /// Asks a window from [`Compositor::toplevels`] to close. The app may
+    /// ask first, as it does when its close button is pressed.
+    pub fn close_toplevel(&self, id: u32) -> Result<(), CompositorError> {
+        self.on_toplevel(id, Action::CloseToplevel(id))
+    }
+
+    /// Minimizes a window from [`Compositor::toplevels`]. Activating it
+    /// brings it back. A compositor that doesn't minimize windows may
+    /// ignore it.
+    pub fn minimize_toplevel(&self, id: u32) -> Result<(), CompositorError> {
+        self.on_toplevel(id, Action::MinimizeToplevel(id))
+    }
+
+    fn on_toplevel(&self, id: u32, action: Action) -> Result<(), CompositorError> {
         if !self.toplevels.borrow().iter().any(|window| window.id == id) {
             return Err(CompositorError::UnknownWindow(id));
         }
         self.actions
-            .send(Action::ActivateToplevel(id))
+            .send(action)
             .map_err(|_| CompositorError::Unsupported)
     }
 

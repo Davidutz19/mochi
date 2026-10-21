@@ -14,6 +14,7 @@ use mochi_core::{
     Reply, Request, SettingsOp,
 };
 use mochi_plugins::manifest::CORE_ID;
+use mochi_protocol::plugin::ToplevelAction;
 use mochi_protocol::{
     API, ActionSpec, ActivityId, Area, BubbleId, ClientMessage, CompositorStatus, Contribution,
     DaemonMessage, ErrorCode, EventKind, ModuleActions, PluginState, PluginStatus, Role, Status,
@@ -436,6 +437,21 @@ impl Daemon {
         }
     }
 
+    /// Every open window, for docks drawn in QML.
+    fn toplevels_message(&self) -> DaemonMessage {
+        DaemonMessage::Toplevels {
+            toplevels: crate::plugins::wire_toplevels(&self.compositor.toplevels()),
+        }
+    }
+
+    /// What a dock drawn in QML asks of a window. A window that just closed
+    /// is no error worth more than a note.
+    fn on_toplevel(&self, toplevel: u32, action: ToplevelAction) {
+        if let Err(error) = crate::plugins::act_on(&self.compositor, toplevel, action) {
+            tracing::debug!(toplevel, %error, "can't act on the window");
+        }
+    }
+
     /// Which monitors a fullscreen window covers, and whose desktops windows
     /// hide.
     fn covered_message(&self) -> DaemonMessage {
@@ -468,6 +484,8 @@ impl Daemon {
         let mut terminate =
             tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
         let mut monitors = self.compositor.subscribe();
+        let mut windows = self.compositor.subscribe_toplevels();
+        let mut watching_windows = true;
         let mut samples = self.profile_samples.take().expect("the daemon runs once");
         let mut desktops = self.desktop_updates.take().expect("the daemon runs once");
         desktops::spawn(
@@ -521,6 +539,10 @@ impl Daemon {
                     }
                     // The compositor connection is gone; the islands stay.
                     Err(_) => watching = false,
+                },
+                changed = windows.changed(), if watching_windows => match changed {
+                    Ok(()) => self.broadcast(&self.toplevels_message()),
+                    Err(_) => watching_windows = false,
                 },
                 Some(light) = inputs.appearance.recv() => {
                     if let Some(loaded) = self.store.set_system_light(light)
@@ -671,6 +693,9 @@ impl Daemon {
             }
             (Some(Role::Ui), ClientMessage::OverflowClick { area }) => self.list_hidden(area),
             (Some(Role::Ui), ClientMessage::PassOn { click }) => self.pass_on(click),
+            (Some(Role::Ui), ClientMessage::Toplevel { toplevel, action }) => {
+                self.on_toplevel(toplevel, action);
+            }
             (
                 Some(Role::Ui),
                 ClientMessage::Frames {
@@ -685,6 +710,7 @@ impl Daemon {
                 | ClientMessage::BubbleClick { .. }
                 | ClientMessage::OverflowClick { .. }
                 | ClientMessage::PassOn { .. }
+                | ClientMessage::Toplevel { .. }
                 | ClientMessage::Frames { .. },
             ) => {
                 self.reply_error(id, ErrorCode::NotAllowed, "only the ui sends events");
@@ -937,6 +963,7 @@ impl Daemon {
             }
             self.reply(id, self.bubbles_message());
             self.reply(id, self.covered_message());
+            self.reply(id, self.toplevels_message());
             let on = self.profiler.on();
             self.reply(id, DaemonMessage::Profiling { on });
         }

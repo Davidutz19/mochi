@@ -3,6 +3,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::plugin::{ToplevelAction, ToplevelInfo};
 use crate::{
     Area, AreaArrangement, Bubble, BubbleId, Contribution, ModuleActions, Overflow, Stacking, Theme,
 };
@@ -57,6 +58,12 @@ pub enum ClientMessage {
     /// A scroll the island caught that belongs to the window under it, once
     /// the island lets go there. UI only, never answered.
     PassOn { click: Click },
+    /// Focuses, closes or minimizes a window from `toplevels`, for a dock
+    /// drawn in QML. UI only, never answered.
+    Toplevel {
+        toplevel: u32,
+        action: ToplevelAction,
+    },
     /// A click on a bubble. UI only, never answered.
     BubbleClick { bubble: BubbleId },
     /// A click on an area's "+N", for the bubbles it leaves out. The daemon
@@ -170,6 +177,10 @@ pub enum DaemonMessage {
         #[serde(default)]
         desktops: Vec<String>,
     },
+    /// Every open window, on every workspace, the one focused most recently
+    /// first. Sent to the UI after `hello` and whenever one opens, closes or
+    /// changes. UI only.
+    Toplevels { toplevels: Vec<ToplevelInfo> },
     /// Reload the views in place, keeping the windows: the shell directory
     /// has a module it didn't have. The UI says hello again once it has.
     /// UI only.

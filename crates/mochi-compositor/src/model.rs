@@ -48,6 +48,7 @@ struct Toplevel {
     outputs: Vec<u32>,
     activated: bool,
     fullscreen: bool,
+    minimized: bool,
     app_id: String,
     title: String,
     /// When it last had focus, counting focus changes; 0 for never.
@@ -182,6 +183,10 @@ impl Model {
         self.toplevels.entry(toplevel).or_default().title = title;
     }
 
+    pub fn toplevel_minimized(&mut self, toplevel: u32, minimized: bool) {
+        self.toplevels.entry(toplevel).or_default().minimized = minimized;
+    }
+
     pub fn toplevel_state(&mut self, toplevel: u32, activated: bool, fullscreen: bool) {
         let window = self.toplevels.entry(toplevel).or_default();
         window.activated = activated;
@@ -232,6 +237,13 @@ impl Model {
                 title: window.title.clone(),
                 app_id: window.app_id.clone(),
                 focused: self.focused_window == Some(*id),
+                minimized: window.minimized,
+                outputs: window
+                    .outputs
+                    .iter()
+                    .filter_map(|output| self.outputs.get(output))
+                    .map(|output| output.name.clone())
+                    .collect(),
             })
             .collect()
     }

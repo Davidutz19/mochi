@@ -41,6 +41,10 @@ An activity can bring an overlay: `ActivitySpec::overlay("Overlay")` draws `qml/
 
 A module can make a monitor of its own through the compositor, named `MOCHI-<MODULE>`, like the share module's `MOCHI-SHARE`. The shell gives it no island or bubbles; it shows the module's `qml/Screen.qml` over the whole monitor instead, with the module's published state as `payload`, and takes no clicks. `Daemon.screens` lists the real monitors only, and `Daemon.virtualScreens` the others; use `Daemon.screens` wherever you list monitors for the user.
 
+## Windows
+
+`Daemon.toplevels` lists every open window, on every workspace, the one focused most recently first. Each has `id`, `title`, `app_id`, `focused`, `minimized` and `outputs`, the monitors it shows on. `Daemon.toplevel(id, action)` focuses (`"activate"`), closes (`"close"`) or minimizes (`"minimize"`) one. With them, a dock or window list needs no backend. Quickshell's `DesktopEntries.heuristicLookup(app_id)` finds a window's desktop entry, for its name and `icon`. The list stays empty without wlr-foreign-toplevel-management, which Hyprland, Sway and niri have.
+
 ## Theme roles
 
 | Role | For |

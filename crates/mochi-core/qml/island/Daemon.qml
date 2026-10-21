@@ -62,6 +62,11 @@ Singleton {
     // widgets there but not the island.
     property var coveredDesktops: []
 
+    // Every open window, on every workspace, the one focused most recently
+    // first: each has `id`, `title`, `app_id`, `focused`, `minimized` and
+    // `outputs`. For docks and window lists. Replaced, never mutated.
+    property var toplevels: []
+
     // Whether a view in `window`, its QsWindow.window, can be seen: the window
     // is shown and no fullscreen window covers its monitor, unless it's drawn
     // over them (`overFullscreen`), nor, for the desktop's own window
@@ -176,6 +181,16 @@ Singleton {
         });
     }
 
+    // Focuses, closes or minimizes a window from `toplevels`: `action` is
+    // "activate", "close" or "minimize".
+    function toplevel(id: int, action: string): void {
+        send({
+            type: "toplevel",
+            toplevel: id,
+            action: action
+        });
+    }
+
     // Runs a module action, for example from a button in a view.
     function command(module: string, action: string, args: var): void {
         send({
@@ -256,6 +271,9 @@ Singleton {
             coveredOutputs = message.outputs ?? [];
             coveredDesktops = message.desktops ?? [];
             break;
+        case "toplevels":
+            toplevels = message.toplevels ?? [];
+            break;
         case "profiling":
             profiling = message.on === true;
             break;
@@ -289,6 +307,7 @@ Singleton {
                 // mochid says them again once it's back.
                 root.coveredOutputs = [];
                 root.coveredDesktops = [];
+                root.toplevels = [];
                 root.profiling = false;
             }
         }

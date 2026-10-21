@@ -28,6 +28,8 @@ A query that starts with a provider's prefix asks only that provider, with the r
 
 `mochi ipc launcher open :` opens the launcher with `:` typed, so a key can go straight to a provider.
 
+`mochi ipc launcher app <app id>` prints, as JSON, the app a window belongs to: its desktop `id`, which `launch` takes, its `name`, `icon` and `actions`. It compares the app id, ignoring case, with the desktop id, its last part, `StartupWMClass`, the program and the name, so `obs` finds `com.obsproject.Studio.desktop`. Docks and window lists in plugins ask it this way.
+
 The file index covers your home folder without hidden files and folders and build folders like `node_modules` and `target`, up to 200 000 entries. It's built in the background the first time a search asks for files after you open the launcher, when there's none or it's more than 15 seconds old, so opening the launcher for apps never reads your home folder. Nothing runs in between. While it builds, the search field says "Indexing", and a `/` search shows its files once it's done.
 
 With `watch = true` in `[module.launcher.files]`, the index is built when Mochi starts and follows your files through inotify: a file or folder you make, delete, rename or move shows up in the results, or leaves them, right away, even with the launcher open. Every indexed folder takes one inotify watch, and every change in them wakes Mochi, which a busy home folder, like one with game installs or builds, makes costly. When the system runs out of watches (the `fs.inotify.max_user_watches` sysctl, 8192 on older kernels), mochid logs it once and goes back to building the index when a search asks for files.

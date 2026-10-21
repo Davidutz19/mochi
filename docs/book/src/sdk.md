@@ -194,6 +194,8 @@ tokio::spawn(async move {
 
 `activate_workspace(id)`, `windows()` and `pointer_output()` ask the compositor and return futures, like `call`.
 
+With `[uses] toplevels = true` in the manifest, `ctx.toplevels()` lists every open window, on every workspace, the one focused most recently first, and `toplevel_changes()` wakes whenever one opens, closes or changes. `toplevel(id, ToplevelAction::Activate)` focuses one, and `Close` and `Minimize` do what they say; it returns a future too. `windows()` is different: it asks where the windows on visible workspaces are, through the compositor's IPC. To show a window's app with its name and icon, `ask("launcher", "app", &[&window.app_id])` prints its desktop entry as JSON, when the launcher runs.
+
 ## Files
 
 `data_dir()` is a directory only this plugin writes to, emptied when mochid starts: for files its views load, like an image it downloaded. `session_dir()` keeps its files across mochid restarts, until you log out. Both are in the runtime directory. For anything that should last longer, use `$XDG_DATA_HOME` or `$XDG_CACHE_HOME` yourself.

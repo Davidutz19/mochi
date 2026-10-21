@@ -36,6 +36,8 @@ After the handshake, the daemon sends the UI everything it needs to draw, in thi
 5. `present`, what the island shows now.
 6. `bubbles`, every bubble.
 
+It also sends `covered`, `toplevels` and `profiling`, described in the table below.
+
 After that, the daemon pushes those messages again whenever they change. A reconnecting UI gets the full set again, so it never has to keep state across restarts.
 
 The UI sends `event` messages, which the daemon never answers:
@@ -56,6 +58,12 @@ A click on an area's "+N" pill is an `overflow_click`, never answered either. Th
 
 ```json
 {"type":"overflow_click","area":"right"}
+```
+
+A dock or window list drawn in QML acts on a window from `toplevels` with `toplevel`, never answered either. `action` is `activate` (focus it, switching to its workspace, and bring it back when minimized), `close` (the app may ask first) or `minimize` (where the compositor minimizes windows). The daemon drops requests for a window that just closed:
+
+```json
+{"type":"toplevel","toplevel":12,"action":"activate"}
 ```
 
 The UI may also send `command` to run module actions, for example from a button in a view.
@@ -109,6 +117,7 @@ Command arguments are always strings, as typed on the command line. The daemon c
 | `bubbles` | `bubbles`, `overflow` (optional) | UI |
 | `theme` | `theme` | UI |
 | `covered` | `outputs`: the monitors a fullscreen window covers, by name; `desktops`: those whose desktop windows hide, which hides the desktop widgets there but not the island. Sent after `hello` and whenever either changes; views there stop what only decorates, like a wave | UI |
+| `toplevels` | `toplevels`: every open window, on every workspace, the one focused most recently first, each with `id`, `title`, `app_id`, `focused`, `minimized` and `outputs` (monitor names). Sent after `hello` and whenever a window opens, closes or changes. Empty without wlr-foreign-toplevel-management | UI |
 | `profiling` | `on`: whether the daemon profiles now. While it does, the UI counts the frames each window draws and sends `frames` every second. Sent after `hello` and whenever it changes | UI |
 | `ok` | | whoever sent `command` or `reload` |
 | `output` | `output`: what the command says, like the share picker's choice | whoever sent `command` or `profile` |
@@ -250,6 +259,7 @@ From then on, either side may send at any time. The backend picks the numbers of
 | `activate_workspace` | `id`, `workspace` | Answered with `compositor_result` |
 | `windows` | `id` | The windows on visible workspaces; answered with `compositor_result` |
 | `pointer_output` | `id` | The output under the pointer; answered with `compositor_result` |
+| `toplevel` | `id`, `toplevel`, `action` | Focuses (`activate`), closes (`close`) or minimizes (`minimize`) a window from `toplevels`; answered with `compositor_result` |
 
 An activity `spec` needs only `compact`, the view's name. The rest are optional: `expanded`, `expand_for_ms`, `payload`, `priority` (0 to 255, 50 by default), `timeout_ms`, `interruptible` (true by default), `same_priority` (`queue` or `stack`), `modal`, `overlay`, `passive`, `fleeting`, `output` and `key`. A bubble `spec` needs only `view`; the rest are `wide`, `payload`, `area`, `group`, `order`, `priority`, `news` and `key`. They mean what the builder methods of the same name in `mochi-sdk` do.
 
@@ -264,6 +274,7 @@ An activity `spec` needs only `compact`, the view's name. The rest are optional:
 | `bubble_clicked` | `bubble` | A click on a bubble |
 | `state` | `module`, `state` | A module from the manifest's `[uses] state` published state; `null` when it stopped |
 | `compositor` | `state` | The compositor's state changed |
+| `toplevels` | `toplevels` | Every open window, as the UI gets them: sent at the start and on every change, when the manifest has `[uses] toplevels = true` |
 | `offers` | `offers` | What other modules offer this plugin: every contribution whose `target` is its id, like launcher providers for a plugin that is a launcher. Sent at the start, then when a reload changes it |
 | `call_result` | `id`, `output` (optional), `error` (optional) | `output` is what the action answered with; `error` is `{"kind": "not_enabled", "detail": "media"}` and the like |
 | `compositor_result` | `id`, `value`, `error` (optional) | |

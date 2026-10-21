@@ -174,6 +174,9 @@ pub struct Uses {
     /// Modules whose published state the backend receives.
     #[serde(default)]
     pub state: Vec<String>,
+    /// The backend receives every open window, and again on each change.
+    #[serde(default)]
+    pub toplevels: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -450,6 +453,7 @@ overrides = ["idle/Pill"]
 
 [uses]
 state = ["media"]
+toplevels = true
 
 [bubbles]
 area = "center-right"
@@ -480,6 +484,8 @@ options = { span = 2 }
         let manifest = Manifest::parse(POMODORO).unwrap();
         assert_eq!(manifest.plugin.id, "pomodoro");
         assert_eq!(manifest.views.dir, "qml");
+        assert_eq!(manifest.uses.state, ["media"]);
+        assert!(manifest.uses.toplevels);
         assert_eq!(
             manifest.overrides(),
             vec![("idle".to_owned(), "Pill".to_owned())]

@@ -62,6 +62,10 @@ pub enum ToPlugin {
     State { module: String, state: Value },
     /// The compositor's state changed.
     Compositor { state: CompositorState },
+    /// Every open window, on every workspace, the one focused most recently
+    /// first. Sent at the start and on every change when the manifest has
+    /// `[uses] toplevels = true`.
+    Toplevels { toplevels: Vec<ToplevelInfo> },
     /// What the enabled modules offer this plugin: every contribution whose
     /// `target` is its id. Sent at the start, then when a reload changes it.
     Offers { offers: Vec<Contribution> },
@@ -157,6 +161,13 @@ pub enum FromPlugin {
     PointerOutput {
         id: u64,
     },
+    /// Focuses, closes or minimizes a window from `toplevels`, by its id.
+    /// Answered with `compositor_result`.
+    Toplevel {
+        id: u64,
+        toplevel: u32,
+        action: ToplevelAction,
+    },
 }
 
 /// The compositor's state, as `ModuleCtx::compositor` gives builtins.
@@ -244,6 +255,39 @@ pub struct WindowInfo {
     pub floating: bool,
 }
 
+/// An open window, on any workspace.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToplevelInfo {
+    /// Stable while the window is open: what `toplevel` requests name.
+    pub id: u32,
+    /// Its title.
+    pub title: String,
+    /// Its app id, like `firefox`. The launcher's `app` action finds its
+    /// desktop entry.
+    pub app_id: String,
+    /// It has keyboard focus, or had it last.
+    #[serde(default)]
+    pub focused: bool,
+    #[serde(default)]
+    pub minimized: bool,
+    /// The outputs it shows on, by name.
+    #[serde(default)]
+    pub outputs: Vec<String>,
+}
+
+/// What to do to a window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToplevelAction {
+    /// Focus it, switching to its workspace and bringing it back when
+    /// minimized.
+    Activate,
+    /// Ask it to close. The app may ask first.
+    Close,
+    /// Minimize it, where the compositor minimizes windows.
+    Minimize,
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -322,6 +366,16 @@ mod tests {
                 keyboard_layout: Some("English (US)".into()),
             },
         });
+        round_trip_to(ToPlugin::Toplevels {
+            toplevels: vec![ToplevelInfo {
+                id: 12,
+                title: "~/mochi".into(),
+                app_id: "kitty".into(),
+                focused: true,
+                minimized: false,
+                outputs: vec!["DP-3".into()],
+            }],
+        });
         round_trip_to(ToPlugin::CallResult {
             id: 4,
             error: None,
@@ -398,6 +452,11 @@ mod tests {
         });
         round_trip_from(FromPlugin::Windows { id: 5 });
         round_trip_from(FromPlugin::PointerOutput { id: 6 });
+        round_trip_from(FromPlugin::Toplevel {
+            id: 7,
+            toplevel: 12,
+            action: ToplevelAction::Close,
+        });
     }
 
     /// Plugins in other languages write these by hand.

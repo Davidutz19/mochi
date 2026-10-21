@@ -203,7 +203,8 @@ async fn run(
             tracing::error!(%error, "lost the Wayland connection");
             break;
         }
-        if std::mem::take(&mut client.done) {
+        let done = std::mem::take(&mut client.done);
+        if done {
             let next = client.model.snapshot();
             senders.state.send_if_modified(|current| {
                 let changed = *current != next;
@@ -211,7 +212,8 @@ async fn run(
                 changed
             });
         }
-        if std::mem::take(&mut client.windows_changed) {
+        // An output named late renames the windows on it too.
+        if std::mem::take(&mut client.windows_changed) || done {
             let next = client.model.toplevels();
             senders.toplevels.send_if_modified(|current| {
                 let changed = *current != next;
@@ -369,6 +371,14 @@ impl Client {
                 (Some(handle), Some(seat)) => handle.activate(seat),
                 (None, _) => tracing::warn!(id, "the window is gone"),
                 (_, None) => tracing::warn!("no seat to activate a window with"),
+            },
+            Action::CloseToplevel(id) => match self.handles.get(&id) {
+                Some(handle) => handle.close(),
+                None => tracing::warn!(id, "the window is gone"),
+            },
+            Action::MinimizeToplevel(id) => match self.handles.get(&id) {
+                Some(handle) => handle.set_minimized(),
+                None => tracing::warn!(id, "the window is gone"),
             },
         }
     }
@@ -678,6 +688,7 @@ impl Dispatch<ZwlrForeignToplevelHandleV1, ()> for Client {
                         .iter()
                         .any(|bytes| u32::from_ne_bytes(*bytes) == value)
                 };
+                client.model.toplevel_minimized(id, has(MINIMIZED));
                 // A minimized fullscreen window covers nothing.
                 client
                     .model

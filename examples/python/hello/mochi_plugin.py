@@ -56,6 +56,8 @@ class Plugin:
         self.data_dir = hello["data_dir"]
         self.session_dir = hello["session_dir"]
         self.compositor = hello["compositor"]
+        # Every open window, with `[uses] toplevels = true` in the manifest.
+        self.toplevels = []
         self._send({"type": "hello", "api": API})
 
     # Events
@@ -64,8 +66,9 @@ class Plugin:
         """Yields mochid's events as dicts, until it closes the connection.
 
         With `timeout` in seconds, yields None when nothing came for that
-        long, for work on a timer. Answers and compositor changes are taken
-        care of here: `self.compositor` is always the latest state."""
+        long, for work on a timer. Answers, compositor changes and windows
+        are taken care of here: `self.compositor` and `self.toplevels` are
+        always the latest."""
         while True:
             message = self._next(timeout)
             if message is None:
@@ -75,6 +78,9 @@ class Plugin:
                 continue
             if message["type"] == "compositor":
                 self.compositor = message["state"]
+                continue
+            if message["type"] == "toplevels":
+                self.toplevels = message["toplevels"]
                 continue
             yield message
 
@@ -140,6 +146,11 @@ class Plugin:
 
     def pointer_output(self):
         return self._compositor({"type": "pointer_output"})
+
+    def toplevel(self, toplevel, action):
+        """Focuses, closes or minimizes a window from `self.toplevels`, by
+        its id: `action` is "activate", "close" or "minimize"."""
+        self._compositor({"type": "toplevel", "toplevel": toplevel, "action": action})
 
     def _compositor(self, request):
         answer = self._ask(request)

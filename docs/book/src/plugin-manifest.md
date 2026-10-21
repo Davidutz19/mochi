@@ -70,6 +70,7 @@ The asset is a tar archive, compressed or not, holding the plugin as it should b
 | Key | Default | |
 |---|---|---|
 | `state` | `[]` | Modules whose published state the backend receives, as `state` messages: once at the start, then on every change, and `null` when the module stops. A module that isn't enabled sends nothing. |
+| `toplevels` | `false` | The backend receives every open window, on every workspace, as `toplevels` messages: once at the start, then whenever a window opens, closes, or changes its title, focus, minimized state or monitor. For docks and window lists; `toplevel` requests focus, close or minimize one. Needs wlr-foreign-toplevel-management, which Hyprland, Sway and niri have; elsewhere the list stays empty. |
 
 ## `[bubbles]`
 

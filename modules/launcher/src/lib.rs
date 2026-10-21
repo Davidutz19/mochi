@@ -186,6 +186,11 @@ impl Module for Launcher {
             ActionSpec::new("launch", "Start an app by desktop id, like firefox.desktop")
                 .arg(ArgSpec::string("id", "Desktop id, or id:action").source("desktop-id")),
             ActionSpec::new(
+                "app",
+                "Print, as JSON, the app a window belongs to: its desktop id, name, icon and actions",
+            )
+            .arg(ArgSpec::string("app_id", "The window's app id, like firefox or com.obsproject.Studio")),
+            ActionSpec::new(
                 "activate",
                 "Pick a result; the launcher sends this on Enter or a click",
             )
@@ -334,6 +339,12 @@ struct State {
 impl State {
     async fn command(&mut self, ctx: &ModuleCtx, command: ModuleCommand) {
         let result = match command.action.as_str() {
+            "app" => {
+                let app_id = command.args.str("app_id").unwrap_or_default().to_owned();
+                let found = self.app(&app_id).await;
+                command.answer(found.map(|app| app.to_string()));
+                return;
+            }
             "toggle" if self.shown.is_some() => {
                 self.close(ctx);
                 Ok(())
@@ -737,6 +748,18 @@ impl State {
         })
     }
 
+    /// The desktop entry a window's app id belongs to, for docks and window
+    /// lists, matched as [`desktop::find`] does.
+    async fn app(&mut self, app_id: &str) -> Result<Value, String> {
+        // An app installed since the last look isn't known yet.
+        if desktop::find(&self.apps, &[app_id]).is_none() {
+            self.apps = read_apps().await;
+        }
+        desktop::find(&self.apps, &[app_id])
+            .map(app_json)
+            .ok_or_else(|| format!("no app for {app_id}"))
+    }
+
     async fn launch(&mut self, ctx: &ModuleCtx, id: &str) -> Result<(), String> {
         if self.apps.is_empty() {
             self.apps = read_apps().await;
@@ -1000,6 +1023,20 @@ fn picked(ctx: &ModuleCtx, provider: &Provider, id: String) {
     }
 }
 
+/// What the `app` action prints. `id` is what `launch` takes.
+fn app_json(app: &App) -> Value {
+    json!({
+        "id": app.id,
+        "name": app.name,
+        "icon": app.icon,
+        "actions": app
+            .actions
+            .iter()
+            .map(|action| json!({ "id": action.id, "name": action.name, "icon": action.icon }))
+            .collect::<Vec<_>>(),
+    })
+}
+
 async fn read_apps() -> Vec<App> {
     let desktops = desktop::current_desktops();
     let directories = desktop::directories();
@@ -1028,6 +1065,34 @@ fn now() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_window_finds_its_app_by_wm_class() {
+        let obs = App {
+            id: "com.obsproject.Studio.desktop".into(),
+            name: "OBS Studio".into(),
+            generic: None,
+            comment: None,
+            icon: Some("com.obsproject.Studio".into()),
+            exec: "obs".into(),
+            terminal: false,
+            keywords: Vec::new(),
+            path: None,
+            wm_class: Some("obs".into()),
+            actions: Vec::new(),
+            file: PathBuf::from("/apps/com.obsproject.Studio.desktop"),
+        };
+        let found = desktop::find(std::slice::from_ref(&obs), &["obs"]).map(app_json);
+        assert_eq!(
+            found,
+            Some(json!({
+                "id": "com.obsproject.Studio.desktop",
+                "name": "OBS Studio",
+                "icon": "com.obsproject.Studio",
+                "actions": [],
+            }))
+        );
+    }
 
     #[test]
     fn hex_alpha_moves_to_the_front_for_qml() {
@@ -1151,6 +1216,8 @@ mod windows_tests {
             title: title.into(),
             app_id: app_id.into(),
             focused,
+            minimized: false,
+            outputs: Vec::new(),
         };
         let open = [
             window(3, "Docs - Mozilla Firefox", "firefox", true),

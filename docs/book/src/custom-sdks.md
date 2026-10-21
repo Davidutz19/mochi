@@ -43,7 +43,7 @@ The backend picks the ids of its activities and bubbles: count up from 1 and ret
 
 ### 5. Match answers to questions
 
-`call`, `activate_workspace`, `windows` and `pointer_output` carry an `id`, and their answer, `call_result` or `compositor_result`, repeats it. Use a second counter for these. Other messages can come before the answer: keep them for later rather than drop them. An async SDK keeps a table of pending ids with a future or callback each; a blocking SDK can read until the answer comes and queue the rest, as the Python one does.
+`call`, `activate_workspace`, `windows`, `pointer_output` and `toplevel` carry an `id`, and their answer, `call_result` or `compositor_result`, repeats it. Use a second counter for these. Other messages can come before the answer: keep them for later rather than drop them. An async SDK keeps a table of pending ids with a future or callback each; a blocking SDK can read until the answer comes and queue the rest, as the Python one does.
 
 ### 6. Answer every command
 
@@ -52,6 +52,8 @@ A `command` carries an `id`, the `action` and its `args` as an object, already c
 ### 7. Keep the compositor's state
 
 `compositor` messages replace the whole state. Keep the latest for the plugin to read, and let it wait for changes if the language has a way.
+
+`toplevels` messages do the same for the list of open windows, which comes only to plugins with `[uses] toplevels = true`.
 
 ### 8. Stop when mochid closes
 
@@ -63,7 +65,7 @@ The protocol only grows: a newer mochid may send message types or fields the SDK
 
 ## What an SDK should have
 
-- One call per message the backend sends, named like the protocol: `publish_state`, `present`, `update`, `withdraw`, `show_bubble`, `update_bubble`, `hide_bubble`, `call`, `reply`, `activate_workspace`, `windows`, `pointer_output`. The Rust SDK's names are the same, which helps people move between them. `call` returns the `output` its `call_result` carries, for actions that answer with something, like a launcher provider's `search`.
+- One call per message the backend sends, named like the protocol: `publish_state`, `present`, `update`, `withdraw`, `show_bubble`, `update_bubble`, `hide_bubble`, `call`, `reply`, `activate_workspace`, `windows`, `pointer_output`, `toplevel`. The Rust SDK's names are the same, which helps people move between them. `call` returns the `output` its `call_result` carries, for actions that answer with something, like a launcher provider's `search`.
 - Settings with defaults. `settings` holds only what the user wrote, so the plugin fills in the rest.
 - A way to wait for events and a timer at once, because most plugins also do something every second or minute: a timeout on the event wait, an async stream, or a callback API on an event loop.
 - Activity and bubble specs that need only the view: in the protocol, only `compact` and `view` are required, and everything else has a default.
@@ -86,7 +88,7 @@ How it does each part:
 | Numbers | `_number` counts activities and bubbles; `_next_request` counts questions |
 | Answers | `_ask` reads until its answer comes, keeping other messages in `_backlog` |
 | Commands | `reply(event, error=…, output=…)` |
-| Compositor | `events` keeps `self.compositor` up to date and doesn't yield those messages |
+| Compositor | `events` keeps `self.compositor` and `self.toplevels` up to date and doesn't yield those messages |
 | Stop | `events` returns when the socket ends |
 | Unknown messages | `events` yields every message it doesn't handle itself; the plugin skips what it doesn't know |
 | Timers | `events(timeout=1.0)` yields `None` when nothing came for a second |

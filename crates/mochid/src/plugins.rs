@@ -24,7 +24,8 @@ use mochi_core::{
 };
 use mochi_plugins::Manifest;
 use mochi_protocol::plugin::{
-    CompositorState, DIR_ENV, FD_ENV, FromPlugin, OutputInfo, ToPlugin, WindowInfo, WorkspaceInfo,
+    CompositorState, DIR_ENV, FD_ENV, FromPlugin, OutputInfo, ToPlugin, ToplevelAction,
+    ToplevelInfo, WindowInfo, WorkspaceInfo,
 };
 use mochi_protocol::{API, ActionSpec, MAX_LINE};
 use serde_json::Value;
@@ -412,6 +413,8 @@ async fn session(
 
     let settings: mochi_core::toml::Table = ctx.settings().unwrap_or_default();
     let mut compositor = ctx.compositor().subscribe();
+    let mut toplevels = ctx.compositor().subscribe_toplevels();
+    let mut watching_toplevels = plugin.manifest.uses.toplevels;
     let hello = ToPlugin::Hello {
         api: API,
         version: VERSION.into(),
@@ -458,6 +461,10 @@ async fn session(
             offers: offers.clone(),
         });
     }
+    if watching_toplevels {
+        let toplevels = wire_toplevels(&toplevels.borrow_and_update());
+        let _ = outgoing.send(ToPlugin::Toplevels { toplevels });
+    }
 
     loop {
         tokio::select! {
@@ -480,6 +487,13 @@ async fn session(
                     let _ = outgoing.send(ToPlugin::Compositor { state });
                 }
             }
+            changed = toplevels.changed(), if watching_toplevels => match changed {
+                Ok(()) => {
+                    let toplevels = wire_toplevels(&toplevels.borrow_and_update());
+                    let _ = outgoing.send(ToPlugin::Toplevels { toplevels });
+                }
+                Err(_) => watching_toplevels = false,
+            },
             status = child.wait() => {
                 return match status {
                     Ok(status) => Ended::Exited(status),
@@ -585,6 +599,16 @@ fn on_message(
                 answer(&outgoing, number, result);
             });
         }
+        FromPlugin::Toplevel {
+            id: number,
+            toplevel,
+            action,
+        } => {
+            let result = act_on(ctx.compositor(), toplevel, action)
+                .map(|()| Value::Null)
+                .map_err(|error| error.to_string());
+            answer(outgoing, number, result);
+        }
         FromPlugin::PointerOutput { id: number } => {
             let output = ctx.compositor().pointer_output();
             answer(
@@ -675,6 +699,33 @@ async fn windows(compositor: &Compositor) -> Result<Value, String> {
         })
         .collect();
     serde_json::to_value(windows).map_err(|error| error.to_string())
+}
+
+/// Every open window, as plugins and the UI get them.
+pub fn wire_toplevels(toplevels: &[compositor::Toplevel]) -> Vec<ToplevelInfo> {
+    toplevels
+        .iter()
+        .map(|window| ToplevelInfo {
+            id: window.id,
+            title: window.title.clone(),
+            app_id: window.app_id.clone(),
+            focused: window.focused,
+            minimized: window.minimized,
+            outputs: window.outputs.clone(),
+        })
+        .collect()
+}
+
+pub fn act_on(
+    compositor: &Compositor,
+    toplevel: u32,
+    action: ToplevelAction,
+) -> Result<(), compositor::CompositorError> {
+    match action {
+        ToplevelAction::Activate => compositor.activate_toplevel(toplevel),
+        ToplevelAction::Close => compositor.close_toplevel(toplevel),
+        ToplevelAction::Minimize => compositor.minimize_toplevel(toplevel),
+    }
 }
 
 fn wire_state(state: &compositor::State) -> CompositorState {

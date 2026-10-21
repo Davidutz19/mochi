@@ -42,7 +42,9 @@ use std::sync::{Arc, Mutex};
 /// The protocol's message types, for tests that play mochid's part: see
 /// [`ModuleCtx::over`].
 pub use mochi_protocol as protocol;
-pub use mochi_protocol::plugin::{CompositorState, OutputInfo, WindowInfo, WorkspaceInfo};
+pub use mochi_protocol::plugin::{
+    CompositorState, OutputInfo, ToplevelAction, ToplevelInfo, WindowInfo, WorkspaceInfo,
+};
 pub use mochi_protocol::spec::{
     ActivitySpec, ArgValue, Args, BubbleSpec, CallError, EndReason, Priority, SamePriority,
 };
@@ -201,6 +203,7 @@ pub struct ModuleCtx {
     events: mpsc::UnboundedReceiver<ModuleEvent>,
     pending: Pending,
     compositor: watch::Receiver<CompositorState>,
+    toplevels: watch::Receiver<Vec<ToplevelInfo>>,
 }
 
 impl ModuleCtx {
@@ -296,11 +299,13 @@ impl ModuleCtx {
 
         let (events, received) = mpsc::unbounded_channel();
         let (compositor_sender, compositor) = watch::channel(compositor);
+        let (toplevels_sender, toplevels) = watch::channel(Vec::new());
         let pending = Pending::default();
         tokio::spawn(read(
             reader,
             events,
             compositor_sender,
+            toplevels_sender,
             pending.clone(),
             outgoing.clone(),
         ));
@@ -317,6 +322,7 @@ impl ModuleCtx {
             events: received,
             pending,
             compositor,
+            toplevels,
         })
     }
 
@@ -469,6 +475,33 @@ impl ModuleCtx {
         }
     }
 
+    /// Every open window, the one focused most recently first. Empty unless
+    /// the manifest has `[uses] toplevels = true`.
+    pub fn toplevels(&self) -> Vec<ToplevelInfo> {
+        self.toplevels.borrow().clone()
+    }
+
+    /// Wakes whenever a window opens, closes or changes.
+    pub fn toplevel_changes(&self) -> watch::Receiver<Vec<ToplevelInfo>> {
+        self.toplevels.clone()
+    }
+
+    /// Focuses, closes or minimizes a window, by its id from
+    /// [`ModuleCtx::toplevels`].
+    pub fn toplevel(
+        &self,
+        toplevel: u32,
+        action: ToplevelAction,
+    ) -> impl Future<Output = Result<(), String>> + Send + 'static {
+        let (id, answer) = self.request();
+        self.send(FromPlugin::Toplevel {
+            id,
+            toplevel,
+            action,
+        });
+        async move { compositor_answer(answer).await.map(drop) }
+    }
+
     /// The output the pointer is on, when the compositor says.
     pub fn pointer_output(
         &self,
@@ -524,6 +557,7 @@ async fn read(
     mut reader: BufReader<tokio::net::unix::OwnedReadHalf>,
     events: mpsc::UnboundedSender<ModuleEvent>,
     compositor: watch::Sender<CompositorState>,
+    toplevels: watch::Sender<Vec<ToplevelInfo>>,
     pending: Pending,
     outgoing: mpsc::UnboundedSender<FromPlugin>,
 ) {
@@ -566,6 +600,10 @@ async fn read(
             ToPlugin::Offers { offers } => ModuleEvent::Offers(offers),
             ToPlugin::Compositor { state } => {
                 compositor.send_replace(state);
+                continue;
+            }
+            ToPlugin::Toplevels { toplevels: windows } => {
+                toplevels.send_replace(windows);
                 continue;
             }
             answer @ (ToPlugin::CallResult { id, .. } | ToPlugin::CompositorResult { id, .. }) => {
