@@ -1,6 +1,6 @@
 # Bento
 
-Plugins, themes and whole setups for [Mochi](https://github.com/DavidutzDev/mochi), each release pinned to the commit someone checked. Mochi reads this registry:
+Plugins, themes and whole setups for [Mochi](https://github.com/Davidutz19/mochi), each release pinned to the commit someone checked. Mochi reads this registry:
 
 ```sh
 mochi bento search clock

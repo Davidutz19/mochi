@@ -1,7 +1,7 @@
 #!/bin/sh
 # Installs Mochi, or updates it, from its latest release:
 #
-#   curl -fsSL https://raw.githubusercontent.com/DavidutzDev/mochi/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/Davidutz19/mochi/main/install.sh | sh
 #
 # Run it again to update. Options go after `sh -s --`:
 #
@@ -19,7 +19,7 @@
 # Mochi installed by a package manager, like Nix or pacman, is left to it.
 set -eu
 
-repo=${MOCHI_REPO:-https://github.com/DavidutzDev/mochi}
+repo=${MOCHI_REPO:-https://github.com/Davidutz19/mochi}
 releases=${MOCHI_RELEASES:-$repo/releases}
 prefix=${MOCHI_PREFIX:-$HOME/.local}
 version=${MOCHI_VERSION:-}
@@ -46,7 +46,7 @@ while [ $# -gt 0 ]; do
     --force) force=1 && shift ;;
     -h | --help)
         sed -n '2,22p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//' ||
-            say "See https://github.com/DavidutzDev/mochi/blob/main/install.sh"
+            say "See https://github.com/Davidutz19/mochi/blob/main/install.sh"
         exit 0
         ;;
     *) fail "unknown option $1; --help lists them" ;;

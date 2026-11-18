@@ -12,7 +12,7 @@ use mochi_plugins::registry::{Kind, Package, Release};
 use super::apply;
 
 /// Where the default registry takes pull requests.
-pub const REPOSITORY: &str = "DavidutzDev/bento";
+pub const REPOSITORY: &str = "Davidutz19/bento";
 
 #[derive(Debug, Default)]
 pub struct Options {

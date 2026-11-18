@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 /// The universal installer, as the README gives it.
-pub const INSTALLER: &str = "https://raw.githubusercontent.com/DavidutzDev/mochi/main/install.sh";
+pub const INSTALLER: &str = "https://raw.githubusercontent.com/Davidutz19/mochi/main/install.sh";
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]

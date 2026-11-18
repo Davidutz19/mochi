@@ -657,7 +657,7 @@ Phase 2, the registry:
 - [x] `bento:<id>` sources, picking the newest release the running Mochi supports; `plugins.lock` records the commit
 - [x] `mochi bento search`, `info` and `update`
 - [x] Yanked and malicious releases: a warning, or refusing to install and to start the plugin
-- [x] Create the registry's repository, github.com/DavidutzDev/bento, from the template; Publish runs and Pages serves `index.json`
+- [x] Create the registry's repository, github.com/Davidutz19/bento, from the template; Publish runs and Pages serves `index.json`
 - [ ] Run Check and Merge on a first real pull request, and list the first packages
 - [ ] A screenshot of each theme and bento from a headless sway in the registry's CI
 - [ ] Prebuilt plugin releases in the registry, with their asset's hash, for machines without build tools or Nix
@@ -767,7 +767,7 @@ Later:
 - [x] Release 0.3.0: the auth module, off until listed: everything forgotten on locking, and polkit, the keyring, sudo and ssh asking on the island, with the program that asks named and checked
 - [x] Release 0.4.0: a shell that draws only what can be seen, paused under fullscreen games and behind tiled windows, NVIDIA read only while shown, the launcher indexing files only when searched, and a built-in profiler with a flame graph
 - [x] Documentation site with mdBook in `docs/book`: installing, getting started, configuration, bubbles, theme, a page per module that includes its `settings.toml`, writing views and the protocol. `nix build .#docs`, part of `nix flake check`; `.github/workflows/docs.yml` publishes it to GitHub Pages
-- [x] Publish the site: https://davidutzdev.github.io/mochi/
+- [x] Publish the site: https://davidutz19.github.io/mochi/
 - [ ] A website for Mochi, not only the docs: a landing page (pitch, screenshot, install command, a theme switcher with Mochi's palettes), news from releases, features with screenshots, a gallery, keybinds, support with a bug report builder that pairs with the About page's Copy details, and the docs under `/docs`. Screenshots made by CI in a headless session, so no media lives in the repository. Last on the list
 - [x] `docs/architecture.md`: the crates, the daemon loop, the UI, contributions, settings, plugins, sessions, tests and releases, for contributors
 

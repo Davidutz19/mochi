@@ -656,7 +656,7 @@ fn mochi_flake() -> String {
     std::env::var("MOCHI_FLAKE")
         .ok()
         .filter(|flake| !flake.is_empty())
-        .unwrap_or_else(|| format!("github:DavidutzDev/mochi/v{}", env!("CARGO_PKG_VERSION")))
+        .unwrap_or_else(|| format!("github:Davidutz19/mochi/v{}", env!("CARGO_PKG_VERSION")))
 }
 
 /// The Nix expression building the plugin in `dir` with Mochi's builder,

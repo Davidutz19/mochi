@@ -8,9 +8,9 @@ use std::time::Duration;
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
-pub const REPOSITORY: &str = "https://github.com/DavidutzDev/mochi";
-pub const DOCUMENTATION: &str = "https://davidutzdev.github.io/mochi/";
-pub const ISSUES: &str = "https://github.com/DavidutzDev/mochi/issues/new";
+pub const REPOSITORY: &str = "https://github.com/Davidutz19/mochi";
+pub const DOCUMENTATION: &str = "https://davidutz19.github.io/mochi/";
+pub const ISSUES: &str = "https://github.com/Davidutz19/mochi/issues/new";
 /// mochi-clock, by Xonex5, which inspired the clock's and the timer's
 /// features; their credit opens it.
 pub const MOCHI_CLOCK: &str = "https://github.com/Xonex5/mochi-clock";

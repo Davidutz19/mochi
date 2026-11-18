@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 
 /// The registry Mochi knows without being told: its name in `bento:`
 /// sources, and where its index is.
-pub const DEFAULT: (&str, &str) = ("bento", "https://davidutzdev.github.io/bento/index.json");
+pub const DEFAULT: (&str, &str) = ("bento", "https://davidutz19.github.io/bento/index.json");
 
 /// The index's format. A newer one is refused, so an old Mochi says to
 /// update instead of misreading it.

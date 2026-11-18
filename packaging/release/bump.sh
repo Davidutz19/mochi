@@ -21,7 +21,7 @@ was=$(printf '%s' "$old" | sed 's/\./\\./g')
 sed -i "0,/^version = \"$was\"/s//version = \"$new\"/" Cargo.toml
 sed -i "s/at version $was,/at version $new,/" README.md
 sed -i "s/\"version\":\"$was\"/\"version\":\"$new\"/g" docs/protocol.md docs/book/src/custom-sdks.md
-sed -i "s|DavidutzDev/mochi/v$was|DavidutzDev/mochi/v$new|; s/--version $was\`/--version $new\`/" docs/book/src/installing.md
+sed -i "s|Davidutz19/mochi/v$was|Davidutz19/mochi/v$new|; s/--version $was\`/--version $new\`/" docs/book/src/installing.md
 sed -i "s/tag = \"v$was\"/tag = \"v$new\"/g" docs/book/src/sdk.md docs/book/src/writing-plugins.md examples/plugins/*/Cargo.toml
 sed -i "s/version: \"$was\".into(),/version: \"$new\".into(),/" \
     crates/mochi-protocol/src/messages.rs crates/mochi-protocol/src/plugin.rs crates/mochid/src/session.rs

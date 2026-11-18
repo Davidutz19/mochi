@@ -5,7 +5,7 @@ pkgver=0.4.1
 pkgrel=1
 pkgdesc='A desktop shell built around a central island'
 arch=('x86_64')
-url='https://github.com/DavidutzDev/mochi'
+url='https://github.com/Davidutz19/mochi'
 license=('MIT')
 # mochid refuses to start with a Quickshell outside 0.3.x; see
 # QUICKSHELL_SERIES in crates/mochi-core/src/supervisor.rs.

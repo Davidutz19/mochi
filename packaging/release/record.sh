@@ -15,7 +15,7 @@ set -eu
 
 version=$1
 dist=${2:-}
-repo=https://github.com/DavidutzDev/mochi
+repo=https://github.com/Davidutz19/mochi
 root=$(cd "$(dirname "$0")/../.." && pwd)
 
 # An archive's sum: from its .sha256 file, or by downloading it.

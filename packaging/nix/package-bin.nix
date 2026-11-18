@@ -85,7 +85,7 @@ stdenv.mkDerivation {
 
   meta = {
     description = "A desktop shell built around a central island, from its release";
-    homepage = "https://github.com/DavidutzDev/mochi";
+    homepage = "https://github.com/Davidutz19/mochi";
     license = lib.licenses.mit;
     mainProgram = "mochid";
     platforms = builtins.attrNames release.assets;

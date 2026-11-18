@@ -6,7 +6,7 @@ The flake has the `mochi` package, with both binaries, the systemd unit and the 
 
 ```nix
 mochi = {
-  url = "github:DavidutzDev/mochi/v0.4.1";
+  url = "github:Davidutz19/mochi/v0.4.1";
   inputs.nixpkgs.follows = "nixpkgs";
 };
 ```
@@ -77,7 +77,7 @@ programs.gpu-screen-recorder.enable = true;
 programs.mochi.package = inputs.mochi.packages.${pkgs.stdenv.hostPlatform.system}.mochi-bin;
 ```
 
-It's the release `packaging/nix/release.json` names, which the release workflow updates on `main` after it publishes. So follow `main`, `github:DavidutzDev/mochi`, rather than a tag: a tag's commit was made before its release existed.
+It's the release `packaging/nix/release.json` names, which the release workflow updates on `main` after it publishes. So follow `main`, `github:Davidutz19/mochi`, rather than a tag: a tag's commit was made before its release existed.
 
 ## Arch Linux
 
@@ -92,7 +92,7 @@ They conflict with each other: install one.
 They aren't on the AUR yet. Until they are, build one from the repository with `makepkg`, which needs `base-devel` and `git`:
 
 ```sh
-git clone https://github.com/DavidutzDev/mochi.git
+git clone https://github.com/Davidutz19/mochi.git
 cd mochi/packaging/arch/mochi-bin    # or mochi to build it, or mochi-git
 makepkg -si
 ```
@@ -133,7 +133,7 @@ The `PKGBUILD`s live in `packaging/arch`. When Quickshell in the official reposi
 On a system without a package for Mochi, one command installs it, and updates it when you run it again:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/DavidutzDev/mochi/main/install.sh | sh -s -- --enable
+curl -fsSL https://raw.githubusercontent.com/Davidutz19/mochi/main/install.sh | sh -s -- --enable
 ```
 
 It downloads the latest release built for your machine, x86_64 or aarch64 Linux with glibc 2.35 or newer, checks it against its published sum, and installs it into `~/.local`: the binaries, the fonts, the systemd unit, the `mochi://` link handler and shell completions. `--enable` starts `mochid` with your session through systemd. Run the same command later to update: it does nothing when the latest is installed, and restarts a running `mochid` after updating.
@@ -151,14 +151,14 @@ Options go after `sh -s --`:
 `MOCHI_FROM_SOURCE=1` builds the release from source with cargo instead of downloading it, and `MOCHI_FROM_SOURCE=main` builds the latest commit, for systems the releases don't cover. That needs `git`, `cargo` with Rust 1.98 or newer, `pkg-config` and `libpulse`'s headers:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/DavidutzDev/mochi/main/install.sh | MOCHI_FROM_SOURCE=1 sh
+curl -fsSL https://raw.githubusercontent.com/Davidutz19/mochi/main/install.sh | MOCHI_FROM_SOURCE=1 sh
 ```
 
 Mochi installed by Nix, pacman, apt or rpm is left to that package manager: the installer says so and stops, unless `--force`.
 
 Either way, Mochi needs Quickshell 0.3 and PulseAudio's library, `libpulse`, which PipeWire systems have too, from your distribution.
 
-By hand, each release on [GitHub](https://github.com/DavidutzDev/mochi/releases) has `mochi-<arch>-linux.tar.gz` with a `.sha256`; unpack it and run its `install.sh`, which takes `--prefix` and `--uninstall` too.
+By hand, each release on [GitHub](https://github.com/Davidutz19/mochi/releases) has `mochi-<arch>-linux.tar.gz` with a `.sha256`; unpack it and run its `install.sh`, which takes `--prefix` and `--uninstall` too.
 
 ## Other systems
 

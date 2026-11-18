@@ -26,7 +26,7 @@ Most shells you see on [r/unixporn](https://www.reddit.com/r/unixporn/) are some
 - **It isn't tied to one machine.** Mochi uses standard Wayland protocols, so it runs on several compositors and screen layouts.
 - **Every option is documented**, and checked when it loads, so a typo says where it is.
 
-[How it works](https://davidutzdev.github.io/mochi/how-it-works.html) explains the design in more detail.
+[How it works](https://davidutz19.github.io/mochi/how-it-works.html) explains the design in more detail.
 
 ## Features
 
@@ -63,7 +63,7 @@ Most shells you see on [r/unixporn](https://www.reddit.com/r/unixporn/) are some
 On most Linux systems, one command installs the latest release, and updates it when you run it again:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/DavidutzDev/mochi/main/install.sh | sh -s -- --enable
+curl -fsSL https://raw.githubusercontent.com/Davidutz19/mochi/main/install.sh | sh -s -- --enable
 ```
 
 Mochi needs [Quickshell](https://quickshell.org) 0.3 and PulseAudio's library, `libpulse`, from your distribution. `--enable` starts it with your session.
@@ -72,17 +72,17 @@ Mochi needs [Quickshell](https://quickshell.org) 0.3 and PulseAudio's library, `
 - **Arch Linux:** `packaging/arch` has `mochi`, `mochi-bin` and `mochi-git`.
 - **Anything else:** `MOCHI_FROM_SOURCE=1` before `sh` builds it from source.
 
-[Installing](https://davidutzdev.github.io/mochi/installing.html) has the details for each.
+[Installing](https://davidutz19.github.io/mochi/installing.html) has the details for each.
 
 ## Learn more
 
-The [documentation](https://davidutzdev.github.io/mochi/) covers everything:
+The [documentation](https://davidutz19.github.io/mochi/) covers everything:
 
-- [Getting started](https://davidutzdev.github.io/mochi/getting-started.html): your first keybinds, and where things are
-- [Configuration](https://davidutzdev.github.io/mochi/configuration.html) and [Theme](https://davidutzdev.github.io/mochi/theme.html): every option
-- [How it works](https://davidutzdev.github.io/mochi/how-it-works.html): the daemon, the island and modules
-- [Plugins](https://davidutzdev.github.io/mochi/plugins.html) and [Bento](https://davidutzdev.github.io/mochi/bento.html): adding to Mochi, and sharing
-- [Writing plugins](https://davidutzdev.github.io/mochi/writing-plugins.html): making your own
+- [Getting started](https://davidutz19.github.io/mochi/getting-started.html): your first keybinds, and where things are
+- [Configuration](https://davidutz19.github.io/mochi/configuration.html) and [Theme](https://davidutz19.github.io/mochi/theme.html): every option
+- [How it works](https://davidutz19.github.io/mochi/how-it-works.html): the daemon, the island and modules
+- [Plugins](https://davidutz19.github.io/mochi/plugins.html) and [Bento](https://davidutz19.github.io/mochi/bento.html): adding to Mochi, and sharing
+- [Writing plugins](https://davidutz19.github.io/mochi/writing-plugins.html): making your own
 
 ## Working on Mochi
 

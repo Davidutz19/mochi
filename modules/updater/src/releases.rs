@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 
 /// The releases, newest first. `MOCHI_RELEASES_API` points elsewhere, for a
 /// fork or a test, also at a `file://`.
-pub const API: &str = "https://api.github.com/repos/DavidutzDev/mochi/releases?per_page=30";
+pub const API: &str = "https://api.github.com/repos/Davidutz19/mochi/releases?per_page=30";
 /// Where a release's own page is, to check the links GitHub gives.
-pub const PAGES: &str = "https://github.com/DavidutzDev/mochi/releases/";
+pub const PAGES: &str = "https://github.com/Davidutz19/mochi/releases/";
 
 /// A version like 0.0.8; a leading `v` and anything after `-` or `+` go.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -164,7 +164,7 @@ mod tests {
     #[test]
     fn only_published_newer_releases_count() {
         let json = r#"[
-            {"tag_name": "v0.0.10", "body": "- Ten", "published_at": "2026-11-02T10:00:00Z", "html_url": "https://github.com/DavidutzDev/mochi/releases/tag/v0.0.10"},
+            {"tag_name": "v0.0.10", "body": "- Ten", "published_at": "2026-11-02T10:00:00Z", "html_url": "https://github.com/Davidutz19/mochi/releases/tag/v0.0.10"},
             {"tag_name": "v0.0.11", "body": "draft", "draft": true},
             {"tag_name": "v0.1.0-rc1", "prerelease": true},
             {"tag_name": "v0.0.9", "body": "- Nine\n", "published_at": "2026-10-20T10:00:00Z", "html_url": "https://elsewhere.example/v0.0.9"},

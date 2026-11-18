@@ -7,7 +7,7 @@
 # unpacks to mochi-<version>/ with the binaries, the fonts the shell loads,
 # the systemd unit, the mochi:// link handler, shell completions, the
 # licenses and install.sh. Its name has no version, so
-# https://github.com/DavidutzDev/mochi/releases/latest/download/<name> always
+# https://github.com/Davidutz19/mochi/releases/latest/download/<name> always
 # gives the newest. A .sha256 file goes next to it.
 set -eu
 
