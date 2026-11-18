@@ -2,6 +2,19 @@
 
 Mochi follows [semantic versioning](https://semver.org). Before 1.0, any minor release may change the config format, the protocol or the module interface; the changelog says when.
 
+## Unreleased
+
+### Added
+
+- Each bubble area has an arrangement: apart, merged, stacked or island. Merged draws the area's bubbles as one shape. Island joins them to the island across the areas in between, so in notch mode the sides and the notch read as one strip. A bubble with `merge = false` keeps its own pill.
+- Settings › Bubbles lists every bubble in its area. Drag a chip to another area or within one, hide it into the tray, or open its options: show, with text, merge, and the pill it shares. The keyboard does the same with the arrows, Shift+arrows, Delete and Enter.
+- Every setting can be changed in the settings panel. Maps have their own fields and an Add menu, and times, durations, folders, places, formats and commands have pickers or suggestions. Removing an entry that `config.toml` defines writes its off value, so the entry stays listed as Off.
+
+### Changed
+
+- Mochi moved to [github.com/Davidutz19/mochi](https://github.com/Davidutz19/mochi), and the documentation to https://davidutz19.github.io/mochi/. The updater, `install.sh`, the packages, the plugin examples and the bento registry use the new address. Mochi 0.4.1 and older look for updates at the old one, which is gone: run the install script again, or update through your package manager or flake.
+- `stack = true` under `[bubbles]` stacks only the areas `config.toml` leaves unset. The bluetooth, network, timer, pomodoro and meteo bubble settings are gone, and their values move to `bubbles.<module>.show`.
+
 ## 0.4.1 - 2026-10-13
 
 ### Fixed
