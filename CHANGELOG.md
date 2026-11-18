@@ -2,6 +2,12 @@
 
 Mochi follows [semantic versioning](https://semver.org). Before 1.0, any minor release may change the config format, the protocol or the module interface; the changelog says when.
 
+## Unreleased
+
+### Fixed
+
+- The flake builds on a nixpkgs with Qt 6.12. Its Quickshell is the latest from upstream, since 0.3.1 failed to compile there, and the source package links zstd, which the newer `zstd-sys` build looks up through pkg-config.
+
 ## 0.4.2 - 2026-11-18
 
 ### Added

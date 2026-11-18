@@ -14,6 +14,7 @@
   libpulseaudio,
   linux-pam,
   libxkbcommon,
+  zstd,
   quickshell,
   gpu-screen-recorder,
   callPackage,
@@ -61,6 +62,7 @@ rustPlatform.buildRustPackage {
     libpulseaudio
     linux-pam
     libxkbcommon
+    zstd
   ];
   # The plugin installer's tests clone a repository of their own, one runs
   # the Python example plugin, and one compiles every view with Quickshell.
