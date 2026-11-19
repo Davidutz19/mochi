@@ -33,6 +33,8 @@ pub(crate) struct Model {
     /// The active keyboard layout, from IPC. It stays across a reconnect,
     /// which sends it again.
     keyboard_layout: Option<String>,
+    /// Config reloads IPC reported.
+    config_reloads: u64,
     /// IPC connected once already: a new connection may have missed events.
     ipc_seen: bool,
     /// Focus changes so far, to order windows by when they had it.
@@ -285,6 +287,10 @@ impl Model {
         self.keyboard_layout = Some(layout);
     }
 
+    pub fn ipc_config_reloaded(&mut self) {
+        self.config_reloads += 1;
+    }
+
     pub fn reset_screencasts(&mut self) {
         self.screencasts = 0;
         self.captured.clear();
@@ -382,6 +388,7 @@ impl Model {
             screencast: self.screencasts > 0,
             captured: self.captured.keys().cloned().collect(),
             keyboard_layout: self.keyboard_layout.clone(),
+            config_reloads: self.config_reloads,
             covered: self
                 .covered
                 .keys()

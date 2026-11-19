@@ -81,6 +81,11 @@ pub struct State {
     /// under it can't be seen. From wlr-foreign-toplevel-management; empty
     /// where the compositor doesn't offer it.
     pub covered: Vec<String>,
+    /// How many times the compositor reloaded its config since Mochi
+    /// connected: Hyprland reports it. A reload drops rules Mochi set at
+    /// runtime, like where its own monitors go, so a module that set them
+    /// sets them again when this changes.
+    pub config_reloads: u64,
 }
 
 /// Monitors Mochi makes for itself, like the share module's switchable
@@ -524,6 +529,7 @@ mod tests {
             captured: Vec::new(),
             keyboard_layout: None,
             covered: Vec::new(),
+            config_reloads: 0,
         });
         let (actions, mut received) = mpsc::unbounded_channel();
         let (_, toplevels) = watch::channel(Vec::new());

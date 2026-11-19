@@ -2,6 +2,12 @@
 
 Mochi follows [semantic versioning](https://semver.org). Before 1.0, any minor release may change the config format, the protocol or the module interface; the changelog says when.
 
+## Unreleased
+
+### Fixed
+
+- The first screen share after login failed with Switchable on, and only a second try worked ([#2](https://github.com/Davidutz19/mochi/issues/2)). Mochi made `MOCHI-SHARE` while the portal waited for the picker, and xdg-desktop-portal-hyprland only finds monitors it saw before running the picker. The monitor now exists whenever Switchable is on, with a workspace of its own, `name:mochi-share`, and Mochi places it away from your screens again after Hyprland reloads its config.
+
 ## 0.4.4 - 2026-11-19
 
 ### Added

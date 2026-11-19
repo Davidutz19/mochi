@@ -180,8 +180,8 @@ fn windows_from(clients: &str, monitors: &str) -> Option<Vec<Window>> {
 
 /// Makes a headless monitor named `name`, far from the real ones so the
 /// pointer never reaches it, then gives the keyboard back to `focused`:
-/// Hyprland moves it when a monitor comes. Lua configs set the monitor rule
-/// through `eval`, older ones through `keyword`.
+/// Hyprland moves it when a monitor comes. It gets a workspace of its own.
+/// Lua configs set the rules through `eval`, older ones through `keyword`.
 pub(crate) async fn create_headless(
     dir: &Path,
     name: &str,
@@ -189,6 +189,10 @@ pub(crate) async fn create_headless(
     focused: Option<&str>,
 ) -> std::io::Result<()> {
     set_mode(dir, name, mode).await?;
+    if let Err(error) = own_workspace(dir, name).await {
+        // A numbered workspace on it is a nuisance, not a reason to fail.
+        tracing::warn!(%error, "can't give {name} a workspace of its own");
+    }
     expect_ok(&query(dir, &format!("output create headless {name}")).await?)?;
     refocus(dir, focused).await
 }
@@ -206,6 +210,22 @@ pub(crate) async fn set_mode(
     );
     if !ok(&query(dir, &lua).await?) {
         let legacy = format!("keyword monitor {name},{mode},{FAR_AWAY},1");
+        expect_ok(&query(dir, &legacy).await?)?;
+    }
+    Ok(())
+}
+
+/// Gives the monitor `name` a workspace of its own when it's made, named
+/// after it in lower case, like `name:mochi-share`. Without the rule
+/// Hyprland gives it the first free number, and a key that switches to
+/// that workspace would move focus to a screen nobody sees.
+async fn own_workspace(dir: &Path, name: &str) -> std::io::Result<()> {
+    let workspace = format!("name:{}", name.to_lowercase());
+    let lua = format!(
+        "eval hl.workspace_rule({{ workspace = \"{workspace}\", monitor = \"{name}\", default = true }})"
+    );
+    if !ok(&query(dir, &lua).await?) {
+        let legacy = format!("keyword workspace {workspace}, monitor:{name}, default:true");
         expect_ok(&query(dir, &legacy).await?)?;
     }
     Ok(())
@@ -295,6 +315,9 @@ fn output_at(cursor: &str, monitors: &str) -> Option<String> {
 
 /// The events worth passing on.
 fn event(line: &str) -> Option<Event> {
+    if line.starts_with("configreloaded>>") {
+        return Some(Event::ConfigReloaded);
+    }
     if let Some(output) = focused_from_event(line) {
         return Some(Event::Focus(output.to_owned()));
     }
@@ -430,6 +453,7 @@ mod tests {
         );
         assert_eq!(event("screencastv2>>0,monitor,"), None);
         assert_eq!(event("screencast>>maybe"), None);
+        assert_eq!(event("configreloaded>>"), Some(Event::ConfigReloaded));
         assert_eq!(
             event("focusedmon>>DP-3,2"),
             Some(Event::Focus("DP-3".into()))
