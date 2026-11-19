@@ -2,6 +2,16 @@
 
 Mochi follows [semantic versioning](https://semver.org). Before 1.0, any minor release may change the config format, the protocol or the module interface; the changelog says when.
 
+## Unreleased
+
+### Added
+
+- `ActivitySpec::over_fullscreen`: an activity that shows over a fullscreen window, like a game, without being modal. The protocol's `activity` has a new `over_fullscreen` field. The screenshot card, the brightness notice and the OSD module's notices (volume, output device, microphone, Caps Lock and keyboard layout) use it, so a screenshot of a game or a volume key pressed in one gets an answer on screen.
+
+### Fixed
+
+- Under a fullscreen window, a screenshot showed nothing, saved nothing and held the island, so the launcher, the mixer and every other panel stayed closed until mochid restarted ([#1](https://github.com/Davidutz19/mochi/issues/1)). On Sway the island's surface stops drawing under a fullscreen window and never moved to the overlay layer; it now starts a new surface there. Over a fullscreen window the island draws only what belongs there, so a screenshot no longer shows the hidden island, and a notice there lets clicks through to the window. A screenshot whose screens don't freeze within five seconds now gives up and says so.
+
 ## 0.4.3 - 2026-11-18
 
 ### Fixed

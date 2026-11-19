@@ -167,9 +167,23 @@ Item {
         live: false
 
         // Nothing is saved while the picker opens, so its animation runs
-        // smoothly: only the picked monitor's frame, once it's picked.
-        readonly property bool wanted: hasContent && root.stage === "saving" && (root.payload.picked ?? []).includes(root.output)
+        // smoothly: only the picked monitor's frame, once it's picked. Not
+        // before the window drew a frame for this picker either: a grab
+        // waits for the window's next frame, and under a fullscreen window
+        // that frame comes only once the island has a new surface over it,
+        // which drops a grab asked of the old one.
+        readonly property bool wanted: hasContent && drawn === root.payload.session && root.stage === "saving" && (root.payload.picked ?? []).includes(root.output)
         property int saved: -1
+        // The picker the window last drew a frame for.
+        property int drawn: -1
+
+        Connections {
+            target: frozen.drawn !== (root.payload.session ?? -1) ? frozen.Window.window : null
+
+            function onFrameSwapped(): void {
+                frozen.drawn = root.payload.session ?? -1;
+            }
+        }
 
         onWantedChanged: {
             const session = root.payload.session;

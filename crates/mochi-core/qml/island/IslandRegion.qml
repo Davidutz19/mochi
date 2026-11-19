@@ -15,7 +15,7 @@ Region {
     property int inset: 0
 
     readonly property var outline: island.shape
-    readonly property bool shown: island.shown
+    readonly property bool shown: island.shown && island.visible
 
     x: Math.round(island.x) + inset
     y: Math.round(island.y) + inset

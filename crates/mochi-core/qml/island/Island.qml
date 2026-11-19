@@ -44,8 +44,16 @@ Item {
     property Loader overlay: null
     readonly property bool overlayReady: overlay !== null && (overlay.status === Loader.Error || (overlay.item !== null && overlay.item.ready !== false))
 
+    // Set by the window while it moves over a fullscreen window: nothing
+    // new shows until it draws there, so no morph starts out of sight.
+    property bool holding: false
+    onHoldingChanged: {
+        if (!holding)
+            follow();
+    }
+
     function waiting(next: var): bool {
-        return next?.overlay != null && !overlayReady;
+        return holding || (next?.overlay != null && !overlayReady);
     }
 
     onOverlayReadyChanged: {

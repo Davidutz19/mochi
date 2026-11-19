@@ -636,6 +636,7 @@ impl Entry {
             overlay: self.spec.overlay.clone(),
             output: self.spec.output.clone(),
             outside: false,
+            over_fullscreen: self.spec.over_fullscreen,
             key: self.spec.key.clone(),
         }
     }
