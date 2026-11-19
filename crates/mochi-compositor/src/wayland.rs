@@ -276,6 +276,10 @@ async fn run(
                         client.model.ipc_keyboard_layout(layout);
                         client.done = true;
                     }
+                    Some(Event::ConfigReloaded) => {
+                        client.model.ipc_config_reloaded();
+                        client.done = true;
+                    }
                     Some(Event::Connected) => {
                         client.model.ipc_connected();
                         client.done = true;

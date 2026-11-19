@@ -196,6 +196,7 @@ mod tests {
             captured: Vec::new(),
             keyboard_layout: None,
             covered: Vec::new(),
+            config_reloads: 0,
         }
     }
 

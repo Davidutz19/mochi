@@ -173,6 +173,7 @@ impl Module for Share {
                 settings: ctx.settings()?,
                 ..State::default()
             };
+            state.reloads = compositor.borrow().config_reloads;
             state.resume(&ctx).await;
             state.capturing(&ctx, &compositor.borrow());
             loop {
@@ -186,10 +187,7 @@ impl Module for Share {
                                 tracing::info!("leaving the switchable monitor to the next start");
                                 state.save(&ctx);
                             } else {
-                                if state.session.is_some() {
-                                    tracing::info!("nothing captures the switchable monitor: removing it");
-                                }
-                                state.stop(&ctx).await;
+                                state.close(&ctx).await;
                             }
                             return Ok(());
                         }
@@ -205,6 +203,10 @@ impl Module for Share {
                         }
                         let snapshot = compositor.borrow_and_update().clone();
                         state.capturing(&ctx, &snapshot);
+                        if snapshot.config_reloads != state.reloads {
+                            state.reloads = snapshot.config_reloads;
+                            state.reloaded(&ctx).await;
+                        }
                     }
                     () = sleep_until(state.bubble_due()) => state.update_bubble(&ctx),
                     () = sleep_until(state.session_due()) => {
@@ -295,13 +297,15 @@ struct State {
     session: Option<Session>,
     /// What the compositor said was captured, when last saved.
     saved_captures: Vec<String>,
+    /// The compositor's config reloads seen so far.
+    reloads: u64,
 }
 
 impl State {
     /// Picks up where the last run left off: gives the compositor back the
     /// captures that were running, and carries on with the switchable share
-    /// while its monitor is still there. A monitor without a share to go
-    /// with it, left by a crash, shares nothing now and goes.
+    /// while its monitor is still there. Otherwise the monitor waits for the
+    /// next share, or goes when shares aren't switchable.
     async fn resume(&mut self, ctx: &ModuleCtx) {
         let saved = Saved::load(ctx.session_dir()).unwrap_or_default();
         ctx.compositor().assume_captures(saved.captured.clone());
@@ -604,19 +608,98 @@ impl State {
         Ok(())
     }
 
-    /// Ends the switchable share and removes its monitor.
+    /// Ends the switchable share. Its monitor stays for the next one while
+    /// shares are switchable: see [`State::stand_by`].
     async fn stop(&mut self, ctx: &ModuleCtx) {
+        self.end(ctx);
+        if self.standing_by(ctx) {
+            self.stand_by(ctx).await;
+        } else {
+            self.remove(ctx).await;
+        }
+    }
+
+    /// Ends the switchable share and removes its monitor, as the module
+    /// stops.
+    async fn close(&mut self, ctx: &ModuleCtx) {
+        self.end(ctx);
+        self.remove(ctx).await;
+    }
+
+    fn end(&mut self, ctx: &ModuleCtx) {
         self.session = None;
         ctx.publish_state(Value::Null);
         self.save(ctx);
-        let exists = ctx
+    }
+
+    /// Whether the switchable monitor waits for the next share.
+    fn standing_by(&self, ctx: &ModuleCtx) -> bool {
+        self.settings.switchable && ctx.compositor().makes_outputs()
+    }
+
+    /// Makes sure the switchable monitor is there before an app asks, at
+    /// the quality the settings start a share with.
+    ///
+    /// The portal runs the picker and waits for it with its Wayland
+    /// connection unread, then looks the answer up among the outputs it
+    /// knows. A monitor made while the picker runs isn't among them yet, so
+    /// the share would fail: it has to exist before the app asks.
+    async fn stand_by(&mut self, ctx: &ModuleCtx) {
+        let (width, height, framerate) = self.mode(ctx);
+        let compositor = ctx.compositor();
+        let result = if exists(ctx) {
+            compositor
+                .resize_virtual_output(OUTPUT, width, height, framerate)
+                .await
+        } else {
+            tracing::info!(width, height, framerate, "making the switchable monitor");
+            compositor
+                .create_virtual_output(OUTPUT, width, height, framerate)
+                .await
+        };
+        if let Err(error) = result {
+            tracing::warn!(%error, "can't make the switchable monitor ahead of a share");
+        }
+    }
+
+    async fn remove(&mut self, ctx: &ModuleCtx) {
+        if exists(ctx) {
+            tracing::info!("removing the switchable monitor");
+            if let Err(error) = ctx.compositor().remove_virtual_output(OUTPUT).await {
+                tracing::warn!(%error, "can't remove the switchable monitor");
+            }
+        }
+    }
+
+    /// The switchable monitor's size and refresh rate: the running share's,
+    /// or the settings' while it waits for one.
+    fn mode(&self, ctx: &ModuleCtx) -> (u32, u32, u32) {
+        let (size, resolution, framerate) = match &self.session {
+            Some(session) => (session.size, session.resolution, session.framerate),
+            None => {
+                let size = switch::largest(&outputs(ctx));
+                (size, self.settings.resolution, self.settings.framerate)
+            }
+        };
+        let (width, height) = resolution.fit_within(size);
+        (width, height, framerate)
+    }
+
+    /// The compositor reloaded its config, which drops the monitor rule
+    /// that keeps the switchable monitor away from the real ones: sets it
+    /// again.
+    async fn reloaded(&mut self, ctx: &ModuleCtx) {
+        if !exists(ctx) {
+            return;
+        }
+        let (width, height, framerate) = self.mode(ctx);
+        tracing::info!("the compositor reloaded: placing the switchable monitor again");
+        if let Err(error) = ctx
             .compositor()
-            .state()
-            .outputs
-            .iter()
-            .any(|output| output.name == OUTPUT);
-        if exists && let Err(error) = ctx.compositor().remove_virtual_output(OUTPUT).await {
-            tracing::warn!(%error, "can't remove the switchable monitor");
+            .resize_virtual_output(OUTPUT, width, height, framerate)
+            .await
+        {
+            tracing::warn!(%error, "can't place the switchable monitor again");
         }
     }
 
@@ -731,6 +814,15 @@ fn restarting(captured: &[String], session: Option<&Session>) -> Vec<String> {
 const APPEAR: Duration = Duration::from_secs(3);
 /// How long the copy gets to draw before the app sees the monitor.
 const FIRST_FRAME: Duration = Duration::from_millis(300);
+
+/// Whether the switchable monitor is there now.
+fn exists(ctx: &ModuleCtx) -> bool {
+    ctx.compositor()
+        .state()
+        .outputs
+        .iter()
+        .any(|output| output.name == OUTPUT)
+}
 
 /// Every monitor's name and size in pixels.
 fn outputs(ctx: &ModuleCtx) -> Vec<(String, u32, u32)> {

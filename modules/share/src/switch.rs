@@ -5,7 +5,7 @@
 //!
 //! Hyprland reports what each capture takes. Mochi's copy takes the real
 //! screens, so a capture of `OUTPUT` is the app's. Once none has run for a
-//! few seconds, the share is over and the monitor goes.
+//! few seconds, the share is over, and the monitor waits for the next one.
 
 use std::time::{Duration, Instant};
 
@@ -201,7 +201,7 @@ pub fn size(outputs: &[(String, u32, u32)], first: &Source) -> (u32, u32) {
 }
 
 /// The largest real monitor, in pixels.
-fn largest(outputs: &[(String, u32, u32)]) -> (u32, u32) {
+pub fn largest(outputs: &[(String, u32, u32)]) -> (u32, u32) {
     outputs
         .iter()
         .filter(|(name, width, height)| {

@@ -27,6 +27,8 @@ pub(crate) enum Event {
     Casts(Vec<String>),
     /// The active keyboard layout's name, like `English (US)`.
     KeyboardLayout(String),
+    /// The compositor reloaded its config. Hyprland's.
+    ConfigReloaded,
     /// The IPC (re)connected: counts kept so far may be stale.
     Connected,
 }
