@@ -210,6 +210,10 @@ pub struct Activity {
     /// every click while it shows. Implied by `modal`.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub outside: bool,
+    /// Shows over a fullscreen window, which hides the island otherwise. A
+    /// modal activity shows there without it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub over_fullscreen: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -359,6 +363,7 @@ mod tests {
             overlay: None,
             output: None,
             outside: false,
+            over_fullscreen: false,
             key: None,
         }
     }
@@ -458,6 +463,14 @@ mod tests {
             activity: Some(Activity {
                 modal: true,
                 overlay: Some("Overlay".into()),
+                ..activity()
+            }),
+            resting: None,
+            output: None,
+        });
+        round_trip_daemon(DaemonMessage::Present {
+            activity: Some(Activity {
+                over_fullscreen: true,
                 ..activity()
             }),
             resting: None,

@@ -693,6 +693,21 @@ fn passive_activities_let_clicks_through() {
 }
 
 #[test]
+fn the_ui_hears_what_shows_over_a_fullscreen_window() {
+    let mut bench = Bench::new();
+    bench.submit("notifications", timed(4));
+    assert!(!bench.arbiter.shown().unwrap().over_fullscreen);
+    bench.submit(
+        "osd",
+        timed(2)
+            .priority(Priority::HIGH)
+            .passive()
+            .over_fullscreen(),
+    );
+    assert!(bench.arbiter.shown().unwrap().over_fullscreen);
+}
+
+#[test]
 fn clicks_outside_can_close_only_what_the_user_opened() {
     let mut bench = Bench::new();
     bench.arbiter.set_outside_expanded_only(true);

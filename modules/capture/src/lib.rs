@@ -57,6 +57,11 @@ const RESOLUTIONS: [&str; 5] = ["native", "480p", "720p", "1080p", "1440p"];
 /// How long the control center takes to close, before a capture started from
 /// its page.
 const HUB_CLOSES: Duration = Duration::from_millis(350);
+/// How long a screenshot waits for the screens it took to save their frozen
+/// frames. They take milliseconds; a frame that never comes, like one of a
+/// screen the compositor stopped drawing the shell on, would hold the island
+/// for good.
+const SAVE_TIMEOUT: Duration = Duration::from_secs(5);
 /// The highest frame rate a recording may ask for.
 const MAX_FRAMERATE: i64 = 240;
 
@@ -433,6 +438,7 @@ impl Module for Capture {
                     result = finished(&mut state.recording) => state.recorded(&ctx, result),
                     Some(thumb) = thumbnails.recv() => state.thumbnailed(&ctx, thumb),
                     Some(result) = joined.recv() => state.joined(&ctx, result),
+                    () = saving(state.session.as_ref()) => state.unsaved(&ctx),
                 }
             }
         })
@@ -443,6 +449,15 @@ impl Module for Capture {
 async fn probed(probe: &mut Option<JoinHandle<record::Probe>>) -> record::Probe {
     match probe {
         Some(probe) => probe.await.unwrap_or_default(),
+        None => std::future::pending().await,
+    }
+}
+
+/// Waits until a screenshot gave up on its frames, or forever while nothing
+/// is picked.
+async fn saving(session: Option<&Session>) {
+    match session.and_then(|session| session.picked_at) {
+        Some(picked_at) => tokio::time::sleep_until((picked_at + SAVE_TIMEOUT).into()).await,
         None => std::future::pending().await,
     }
 }
@@ -1161,6 +1176,17 @@ impl State {
         }
     }
 
+    /// The frames never came: closes the picker so the island is free again,
+    /// and says so.
+    fn unsaved(&mut self, ctx: &ModuleCtx) {
+        self.close(ctx);
+        self.failed(
+            ctx,
+            Kind::Screenshot,
+            "couldn't capture the screen in time; try again",
+        );
+    }
+
     /// Starts recording, with the bubble. When the recorder can't start, the
     /// island says why: the action may have come from a click on it, whose
     /// error would only reach the log.
@@ -1626,6 +1652,9 @@ impl State {
         ActivitySpec::new("Preview")
             .key("preview")
             .priority(Priority::HIGH)
+            // Over a fullscreen game too: the only sign a screenshot of it
+            // worked, or why it didn't.
+            .over_fullscreen()
             .timeout(Duration::from_millis(self.settings.preview_ms))
             .payload(payload)
     }

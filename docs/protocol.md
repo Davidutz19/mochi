@@ -148,6 +148,8 @@ The UI loads `root:/modules/<module>/<view>.qml` and passes `payload` to it. `ac
 
 `outside` is only present when `true`: a click outside the island closes the activity, so the UI catches every click while it shows and sends an `outside` event. `modal` implies it.
 
+`over_fullscreen` is only present when `true`: the activity shows over a fullscreen window, like a game, which hides the island otherwise. Modal activities, and those with an `overlay`, show there anyway without it. Over a fullscreen window the UI draws only such an activity, not the bubbles or what the island showed before, and an activity that isn't modal doesn't catch clicks there, so they reach the window.
+
 `key` is only present when the module set one. A module uses it to replace its own activity, for example a volume OSD on every volume step. When the next `present` has the same `module`, `key` and `view` as the shown activity, the UI updates the view's `payload` in place instead of switching views, even though the `id` is new.
 
 ### Bubbles
@@ -251,7 +253,7 @@ From then on, either side may send at any time. The backend picks the numbers of
 | `windows` | `id` | The windows on visible workspaces; answered with `compositor_result` |
 | `pointer_output` | `id` | The output under the pointer; answered with `compositor_result` |
 
-An activity `spec` needs only `compact`, the view's name. The rest are optional: `expanded`, `expand_for_ms`, `payload`, `priority` (0 to 255, 50 by default), `timeout_ms`, `interruptible` (true by default), `same_priority` (`queue` or `stack`), `modal`, `overlay`, `passive`, `fleeting`, `output` and `key`. A bubble `spec` needs only `view`; the rest are `wide`, `payload`, `area`, `group`, `order`, `priority`, `news` and `key`. They mean what the builder methods of the same name in `mochi-sdk` do.
+An activity `spec` needs only `compact`, the view's name. The rest are optional: `expanded`, `expand_for_ms`, `payload`, `priority` (0 to 255, 50 by default), `timeout_ms`, `interruptible` (true by default), `same_priority` (`queue` or `stack`), `modal`, `overlay`, `passive`, `fleeting`, `over_fullscreen`, `output` and `key`. A bubble `spec` needs only `view`; the rest are `wide`, `payload`, `area`, `group`, `order`, `priority`, `news` and `key`. They mean what the builder methods of the same name in `mochi-sdk` do.
 
 ### Daemon to backend
 

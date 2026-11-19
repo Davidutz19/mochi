@@ -58,8 +58,9 @@ PanelWindow {
     // Any other activity that closes on a click outside catches every click
     // too, without the keyboard: the click closes it instead of reaching
     // the window underneath. Not on a monitor that isn't showing it, and not
-    // after a scroll outside released it.
-    readonly property bool catching: (activity?.outside ?? false) && !releases(activity)
+    // after a scroll outside released it. Nor over a fullscreen window, like
+    // a game, which a notice shouldn't take clicks from: it times out.
+    readonly property bool catching: (activity?.outside ?? false) && !releases(activity) && !coveredHere
     // The activity whose catch a scroll released, as {id, module, key}.
     property var released: null
 
@@ -95,8 +96,75 @@ PanelWindow {
     // layer: the island goes over it.
     readonly property bool arranging: Daemon.state("widgets")?.editing === true
     // The overlay layer draws over a fullscreen window too.
-    readonly property bool overFullscreen: modal || overlaid || arranging
-    WlrLayershell.layer: overFullscreen ? WlrLayer.Overlay : WlrLayer.Top
+    readonly property bool overFullscreen: modal || overlaid || arranging || (activity?.over_fullscreen ?? false)
+    WlrLayershell.layer: overFullscreen || lingering ? WlrLayer.Overlay : WlrLayer.Top
+
+    // A fullscreen window hides the top layer, and Sway sends a hidden
+    // surface no frame callbacks, so Qt stops drawing it. A new layer only
+    // takes effect on the surface's next commit, which then never comes:
+    // the island would stay hidden, and a screenshot would wait forever for
+    // a frame to save. When no frame comes soon after the move, hiding the
+    // window and showing it again makes a new surface, on the overlay layer
+    // from its first frame. Hyprland keeps drawing hidden surfaces, so the
+    // move works there without a new surface.
+    readonly property bool coveredHere: Daemon.coveredOutputs.includes(screen?.name ?? "")
+    property bool remapping: false
+    visible: !remapping
+    // Moving over a fullscreen window, until the first frame there. The
+    // island holds what it shows next until then, so its opening morph
+    // plays from the start instead of half of it passing out of sight.
+    property bool moving: false
+    // Closing over a fullscreen window: the surface stays over it while the
+    // island shrinks and fades out, as it would close anywhere else.
+    property bool lingering: false
+    onOverFullscreenChanged: {
+        if (overFullscreen && coveredHere) {
+            moving = true;
+            stalled.restart();
+            island.Window.window?.update();
+        } else if (!overFullscreen) {
+            moving = false;
+            stalled.stop();
+            if (coveredHere) {
+                lingering = true;
+                linger.restart();
+            }
+        }
+    }
+
+    Timer {
+        id: stalled
+
+        interval: 100
+        onTriggered: {
+            root.remapping = true;
+            Qt.callLater(() => root.remapping = false);
+        }
+    }
+
+    Timer {
+        id: linger
+
+        interval: Theme.fadeIn + 50
+        onTriggered: root.lingering = false
+    }
+
+    Connections {
+        target: root.moving ? island.Window.window : null
+
+        function onFrameSwapped(): void {
+            stalled.stop();
+            root.moving = false;
+        }
+    }
+
+    // Under a fullscreen window the island draws only what belongs over
+    // it: not the bar, the bubbles, or what the island showed before, which
+    // the window hid. The frozen frame of a screenshot would show them.
+    readonly property bool islandOverFullscreen: {
+        const shown = island.activity;
+        return arranging || (shown !== null && (shown.modal || shown.overlay != null || shown.over_fullscreen === true));
+    }
     WlrLayershell.keyboardFocus: modal || overlaid ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     // Whether a point is on the island or a pill, not outside them.
@@ -130,14 +198,14 @@ PanelWindow {
     // windows keep out of its room.
     property Region barMask: Region {
         y: root.atBottom ? root.height - Theme.idleHeight : 0
-        width: Theme.mode === "bar" ? root.width : 0
+        width: Theme.mode === "bar" && !root.coveredHere ? root.width : 0
         height: Theme.idleHeight
     }
 
     // A pixel short of the bar's inner edge; see IslandRegion's inset.
     property Region barBlur: Region {
         y: root.atBottom ? root.height - Theme.idleHeight + 1 : 0
-        width: Theme.mode === "bar" ? root.width : 0
+        width: Theme.mode === "bar" && !root.coveredHere ? root.width : 0
         height: Theme.idleHeight - 1
     }
 
@@ -311,7 +379,7 @@ PanelWindow {
         anchors.fill: parent
         island: root.islandItem
         flipY: root.atBottom
-        visible: root.barred > 0
+        visible: root.barred > 0 && !root.coveredHere
         opacity: root.barred
     }
 
@@ -354,6 +422,7 @@ PanelWindow {
         rightSide: end > root.width - 0.5 ? root.attached * (1 - root.barred) : 0
         flipY: root.atBottom
         opacity: shown ? 1 - root.barred : 0
+        visible: !root.coveredHere
 
         // Whether it draws, apart from fading.
         property bool shown: false
@@ -420,6 +489,7 @@ PanelWindow {
     component Area: BubbleArea {
         island: root.islandItem
         window: root
+        visible: !root.coveredHere
         attached: root.attached
         flat: root.barred
         // Inside the island's shape without joining it, like the area
@@ -479,6 +549,11 @@ PanelWindow {
         atRight: Theme.islandArea === "right"
         overlay: overlay
         output: root.screen?.name ?? ""
+        holding: root.moving
+        // Under a fullscreen window it fades in as it opens and out as it
+        // closes: what it shows the rest of the time is out of sight there.
+        opacity: (shown ? 1 : 0) * (root.coveredHere && !root.islandOverFullscreen ? 0 : 1)
+        visible: !root.coveredHere || root.islandOverFullscreen || root.lingering
     }
 
     // Carries a drag out of a panel past the panel's closing.

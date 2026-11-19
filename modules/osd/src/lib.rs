@@ -167,6 +167,8 @@ fn spec(notice: &Notice, timeout: Duration) -> ActivitySpec {
         // and it never shows late, after a panel closes.
         .passive()
         .fleeting()
+        // Over a game too, where a volume key gets no answer otherwise.
+        .over_fullscreen()
         .timeout(timeout)
         .payload(notice.payload())
 }

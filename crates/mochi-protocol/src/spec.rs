@@ -91,6 +91,10 @@ pub struct ActivitySpec {
     /// Shown at once or not at all, never queued or suspended: feedback
     /// like the volume OSD is stale by the time it would come back.
     pub fleeting: bool,
+    /// Shows over a fullscreen window, like a game, which hides the island
+    /// otherwise. A modal activity shows there without it. For feedback on
+    /// something the user just did, like a screenshot or a volume key.
+    pub over_fullscreen: bool,
     /// The monitor a modal activity shows on. The daemon picks one from
     /// `[island] panels` when the module leaves it out.
     pub output: Option<String>,
@@ -120,6 +124,7 @@ impl ActivitySpec {
             output: None,
             passive: false,
             fleeting: false,
+            over_fullscreen: false,
         }
     }
 
@@ -197,6 +202,12 @@ impl ActivitySpec {
     /// Never waits behind another activity: see [`ActivitySpec::fleeting`].
     pub fn fleeting(mut self) -> Self {
         self.fleeting = true;
+        self
+    }
+
+    /// Shows over a fullscreen window: see [`ActivitySpec::over_fullscreen`].
+    pub fn over_fullscreen(mut self) -> Self {
+        self.over_fullscreen = true;
         self
     }
 

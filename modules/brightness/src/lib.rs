@@ -417,6 +417,7 @@ impl State {
             // Feedback for a key just pressed, like the volume's.
             .passive()
             .fleeting()
+            .over_fullscreen()
             .timeout(OSD_TIMEOUT)
             .payload(json!({
                 "display": self.id(which),
