@@ -30,8 +30,10 @@ WheelHandler {
     }
 
     onWheel: event => {
-        // A touchpad sends pixels, in phases from the touch to the lift.
-        if (event.pixelDelta.y !== 0 || event.phase !== Qt.NoScrollPhase)
+        // A touchpad sends pixels, in phases from the touch to the lift. A
+        // wheel has no phases. Since Qt 6.12 it sends pixels too, so only
+        // the phase tells the two apart.
+        if (event.phase !== Qt.NoScrollPhase)
             root.touchpad(event.pixelDelta.y, event.phase);
         else
             root.turn(event.angleDelta.y);

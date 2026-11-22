@@ -2,6 +2,12 @@
 
 Mochi follows [semantic versioning](https://semver.org). Before 1.0, any minor release may change the config format, the protocol or the module interface; the changelog says when.
 
+## Unreleased
+
+### Fixed
+
+- The mouse wheel scrolled lists in steps again on Qt 6.12, instead of gliding ([#5](https://github.com/Davidutz19/mochi/issues/5)). Qt 6.12 gives a wheel's steps a pixel distance, and Mochi took any scroll with one for a touchpad. Only a touchpad's scrolls come in phases, so Mochi now tells them apart that way.
+
 ## 0.4.5 - 2026-11-19
 
 ### Fixed
