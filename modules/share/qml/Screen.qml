@@ -50,6 +50,32 @@ Item {
         height: root.whole.height * root.scale
     }
 
+    // Hyprland reports a capture as stopped once half a second passes
+    // without a frame, and this monitor renders only when something on it
+    // changes. A still source would make the app's capture look stopped,
+    // and the share would end under it (#7). While a share runs, this
+    // corner, under the copy, changes color ten times a second, so the
+    // monitor renders and the app's capture gets a frame each time.
+    Rectangle {
+        id: tick
+
+        property bool lit: false
+
+        z: -1
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        width: 2
+        height: 2
+        color: lit ? "#010101" : "black" // design: under the copy, or on its black edge
+
+        Timer {
+            interval: 100
+            repeat: true
+            running: root.source !== null
+            onTriggered: tick.lit = !tick.lit
+        }
+    }
+
     // What's shared went away, like a closed window.
     Text {
         anchors.centerIn: parent

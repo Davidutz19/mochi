@@ -2,6 +2,12 @@
 
 Mochi follows [semantic versioning](https://semver.org). Before 1.0, any minor release may change the config format, the protocol or the module interface; the changelog says when.
 
+## Unreleased
+
+### Fixed
+
+- A switchable share went black for good once the shared screen stayed still for 3 seconds ([#7](https://github.com/Davidutz19/mochi/issues/7)). Hyprland reports a capture as stopped after half a second without a frame, and `MOCHI-SHARE` only renders when its copy changes, so a still source looked like the app had stopped, and Mochi ended the share while the app still streamed it. While a share runs, Mochi now redraws `MOCHI-SHARE` ten times a second, so the app's capture keeps getting frames.
+
 ## 0.4.6 - 2026-11-22
 
 ### Fixed
