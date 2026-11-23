@@ -1,13 +1,13 @@
 {
-  "version": "0.4.7",
+  "version": "0.4.8",
   "assets": {
     "x86_64-linux": {
-      "url": "https://github.com/Davidutz19/mochi/releases/download/v0.4.7/mochi-x86_64-linux.tar.gz",
-      "sha256": "57ebd66cbae29490bd0baede3d4866a2e84f2f99388efe4f76ff34f4f40abae2"
+      "url": "https://github.com/Davidutz19/mochi/releases/download/v0.4.8/mochi-x86_64-linux.tar.gz",
+      "sha256": "fee514cd2213650f0b099721aeffdc71988557cd3e2097c0216f5f5bdea69336"
     },
     "aarch64-linux": {
-      "url": "https://github.com/Davidutz19/mochi/releases/download/v0.4.7/mochi-aarch64-linux.tar.gz",
-      "sha256": "9966ab7230444766d54594212508ebe5ea7e00c126aa2c2822f454e2aa5d96e8"
+      "url": "https://github.com/Davidutz19/mochi/releases/download/v0.4.8/mochi-aarch64-linux.tar.gz",
+      "sha256": "6bb983f065d764a65e82ec6ff7611cfab70f20315eaf7da33d849b4c89b4cb68"
     }
   }
 }
