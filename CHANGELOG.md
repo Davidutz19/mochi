@@ -2,6 +2,12 @@
 
 Mochi follows [semantic versioning](https://semver.org). Before 1.0, any minor release may change the config format, the protocol or the module interface; the changelog says when.
 
+## Unreleased
+
+### Fixed
+
+- On Hyprland, the capture picker, the screenshot card and other notices over a fullscreen game showed only on the other monitors ([#8](https://github.com/Davidutz19/mochi/issues/8)). Hyprland focuses a window before it reports the workspace that holds it, so Mochi took the game's monitor for uncovered, and the island never moved over the game. Mochi now asks Hyprland which monitors show a fullscreen window after each workspace, window or fullscreen change. The island also starts a new surface whenever it moves to the overlay layer and draws no frame within 100 ms, on every monitor, so a fullscreen window Mochi misses can't hide it.
+
 ## 0.4.7 - 2026-11-22
 
 ### Fixed

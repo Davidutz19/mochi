@@ -280,6 +280,10 @@ async fn run(
                         client.model.ipc_config_reloaded();
                         client.done = true;
                     }
+                    Some(Event::Covered(outputs)) => {
+                        client.model.ipc_covered(outputs);
+                        client.done = true;
+                    }
                     Some(Event::Connected) => {
                         client.model.ipc_connected();
                         client.done = true;

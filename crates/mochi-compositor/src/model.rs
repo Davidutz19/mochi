@@ -43,6 +43,9 @@ pub(crate) struct Model {
     /// that had focus there last while fullscreen. A normal window taking
     /// focus on the output, or another workspace there, uncovers it.
     covered: BTreeMap<u32, u32>,
+    /// The covered outputs from compositor IPC, by name. Exact, so it wins
+    /// over the guess from the order of protocol events.
+    ipc_covered: Option<Vec<String>>,
 }
 
 #[derive(Debug, Default)]
@@ -250,6 +253,10 @@ impl Model {
         self.ipc_focus = Some(output);
     }
 
+    pub fn ipc_covered(&mut self, outputs: Vec<String>) {
+        self.ipc_covered = Some(outputs);
+    }
+
     /// One screencast started or stopped. Hyprland reports each capture
     /// session, so several can run at once.
     pub fn ipc_screencast(&mut self, started: bool) {
@@ -389,16 +396,23 @@ impl Model {
             captured: self.captured.keys().cloned().collect(),
             keyboard_layout: self.keyboard_layout.clone(),
             config_reloads: self.config_reloads,
-            covered: self
-                .covered
-                .keys()
-                .filter_map(|output| self.outputs.get(output))
-                .map(|output| output.name.clone())
-                .filter(|name| !name.is_empty())
-                .collect::<std::collections::BTreeSet<_>>()
-                .into_iter()
-                .collect(),
+            covered: self.covered(),
         }
+    }
+
+    /// The covered outputs by name, sorted.
+    fn covered(&self) -> Vec<String> {
+        if let Some(outputs) = &self.ipc_covered {
+            return outputs.clone();
+        }
+        self.covered
+            .keys()
+            .filter_map(|output| self.outputs.get(output))
+            .map(|output| output.name.clone())
+            .filter(|name| !name.is_empty())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect()
     }
 
     /// The outputs of the group holding the workspace, by id.
@@ -660,6 +674,24 @@ mod tests {
         model.toplevel_state(30, true, true);
         model.toplevel_done(30);
         model.toplevel_closed(30);
+        assert!(model.snapshot().covered.is_empty());
+    }
+
+    #[test]
+    fn ipc_coverage_wins_over_the_order_of_events() {
+        let mut model = dual_monitor();
+        // Hyprland focuses the game, then reports its workspace, which
+        // uncovers the output by the protocol rule (#8).
+        model.toplevel_output(30, 2, true);
+        model.toplevel_state(30, true, true);
+        model.toplevel_done(30);
+        model.workspace_state(22, 0);
+        model.workspace_state(22, ACTIVE);
+        assert!(model.snapshot().covered.is_empty());
+        // Its IPC knows better.
+        model.ipc_covered(vec!["HDMI-A-1".into()]);
+        assert_eq!(model.snapshot().covered, ["HDMI-A-1"]);
+        model.ipc_covered(Vec::new());
         assert!(model.snapshot().covered.is_empty());
     }
 

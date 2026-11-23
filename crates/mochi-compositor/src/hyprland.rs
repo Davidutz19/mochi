@@ -27,8 +27,9 @@ pub(crate) fn socket_dir() -> Option<PathBuf> {
     dir.join(".socket2.sock").exists().then_some(dir)
 }
 
-/// One connection: the focused output and the keyboard layout, then every
-/// change to them or to screencasts. `Ok` means the receiver is gone.
+/// One connection: the focused output, the keyboard layout and the outputs
+/// a fullscreen window covers, then every change to them or to
+/// screencasts. `Ok` means the receiver is gone.
 pub(crate) async fn session(dir: &Path, focus: &UnboundedSender<Event>) -> std::io::Result<()> {
     // Connect to the events first, so no change slips in between the query
     // and the subscription.
@@ -46,6 +47,12 @@ pub(crate) async fn session(dir: &Path, focus: &UnboundedSender<Event>) -> std::
     {
         return Ok(());
     }
+    let mut covered = query_covered(dir).await?;
+    if let Some(outputs) = &covered
+        && focus.send(Event::Covered(outputs.clone())).is_err()
+    {
+        return Ok(());
+    }
 
     let mut lines = BufReader::new(events).lines();
     while let Some(line) = lines.next_line().await? {
@@ -54,11 +61,87 @@ pub(crate) async fn session(dir: &Path, focus: &UnboundedSender<Event>) -> std::
         {
             return Ok(());
         }
+        if changes_coverage(&line)
+            && let Some(now) = query_covered(dir).await?
+            && covered.as_ref() != Some(&now)
+        {
+            if focus.send(Event::Covered(now.clone())).is_err() {
+                return Ok(());
+            }
+            covered = Some(now);
+        }
     }
     Err(std::io::Error::new(
         std::io::ErrorKind::UnexpectedEof,
         "the event socket closed",
     ))
+}
+
+/// The outputs a fullscreen window covers, or `None` when Hyprland's reply
+/// makes no sense.
+async fn query_covered(dir: &Path) -> std::io::Result<Option<Vec<String>>> {
+    let monitors = query(dir, "j/monitors").await?;
+    let clients = query(dir, "j/clients").await?;
+    Ok(covered_from(&clients, &monitors))
+}
+
+/// Events after which a fullscreen window may cover another output, or
+/// none. Hyprland focuses a window before it reports the workspace that
+/// holds it, so the protocols' order of events can't tell; asking after
+/// each of these can. The v2 events repeat these, and one is enough.
+fn changes_coverage(line: &str) -> bool {
+    let name = line.split_once(">>").map_or("", |(name, _)| name);
+    matches!(
+        name,
+        "workspace"
+            | "focusedmon"
+            | "fullscreen"
+            | "activespecial"
+            | "moveworkspace"
+            | "movewindow"
+            | "openwindow"
+            | "closewindow"
+            | "monitoradded"
+            | "monitorremoved"
+    )
+}
+
+/// The monitors showing a fullscreen window, from `hyprctl -j clients` and
+/// `hyprctl -j monitors`, sorted. A maximized window covers nothing: the
+/// top layer still shows over it.
+fn covered_from(clients: &str, monitors: &str) -> Option<Vec<String>> {
+    let clients: serde_json::Value = serde_json::from_str(clients).ok()?;
+    let monitors: serde_json::Value = serde_json::from_str(monitors).ok()?;
+    let fullscreen_on: Vec<i64> = clients
+        .as_array()?
+        .iter()
+        .filter(|client| client["mapped"] != false)
+        .filter(|client| match &client["fullscreen"] {
+            // The mode's bits: 1 maximized, 2 fullscreen.
+            serde_json::Value::Number(mode) => mode.as_i64().is_some_and(|mode| mode & 2 != 0),
+            // Older Hyprland: a flag, and mode 0 for fullscreen, 1 maximized.
+            serde_json::Value::Bool(true) => client["fullscreenMode"].as_i64().unwrap_or(0) == 0,
+            _ => false,
+        })
+        .filter_map(|client| client["workspace"]["id"].as_i64())
+        .collect();
+    let mut covered: Vec<String> = monitors
+        .as_array()?
+        .iter()
+        .filter(|monitor| {
+            [
+                &monitor["activeWorkspace"]["id"],
+                &monitor["specialWorkspace"]["id"],
+            ]
+            .into_iter()
+            .filter_map(serde_json::Value::as_i64)
+            .filter(|id| *id != 0)
+            .any(|id| fullscreen_on.contains(&id))
+        })
+        .filter_map(|monitor| monitor["name"].as_str().map(str::to_owned))
+        .collect();
+    covered.sort();
+    Some(covered)
 }
 
 async fn query_focused(dir: &Path) -> std::io::Result<Option<String>> {
@@ -459,6 +542,43 @@ mod tests {
             Some(Event::Focus("DP-3".into()))
         );
         assert_eq!(event("openwindow>>abc"), None);
+    }
+
+    #[test]
+    fn a_fullscreen_window_on_a_shown_workspace_covers_its_monitor() {
+        let monitors = r#"[
+            {"name":"HDMI-A-1","activeWorkspace":{"id":6},"specialWorkspace":{"id":0}},
+            {"name":"DP-2","activeWorkspace":{"id":2},"specialWorkspace":{"id":-98}},
+            {"name":"eDP-1","activeWorkspace":{"id":3},"specialWorkspace":{"id":0}}
+        ]"#;
+        let clients = r#"[
+            {"workspace":{"id":6},"fullscreen":2,"mapped":true},
+            {"workspace":{"id":-98},"fullscreen":3},
+            {"workspace":{"id":3},"fullscreen":1},
+            {"workspace":{"id":4},"fullscreen":2}
+        ]"#;
+        assert_eq!(
+            covered_from(clients, monitors).unwrap(),
+            ["DP-2", "HDMI-A-1"]
+        );
+        // Older Hyprland: a flag, and a mode where 1 is maximized.
+        let older = r#"[
+            {"workspace":{"id":6},"fullscreen":true,"fullscreenMode":0},
+            {"workspace":{"id":3},"fullscreen":true,"fullscreenMode":1}
+        ]"#;
+        assert_eq!(covered_from(older, monitors).unwrap(), ["HDMI-A-1"]);
+        assert_eq!(covered_from("[]", monitors).unwrap(), Vec::<String>::new());
+        assert_eq!(covered_from("not json", monitors), None);
+    }
+
+    #[test]
+    fn asks_about_coverage_after_workspace_and_window_events() {
+        assert!(changes_coverage("workspace>>6"));
+        assert!(changes_coverage("fullscreen>>1"));
+        assert!(changes_coverage("closewindow>>55ed97fe53b0"));
+        assert!(!changes_coverage("workspacev2>>6,6"));
+        assert!(!changes_coverage("activewindow>>Lunar Client,Lunar"));
+        assert!(!changes_coverage("screencast>>1,monitor"));
     }
 
     #[test]

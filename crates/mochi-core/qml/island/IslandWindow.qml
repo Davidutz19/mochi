@@ -99,18 +99,20 @@ PanelWindow {
     readonly property bool overFullscreen: modal || overlaid || arranging || (activity?.over_fullscreen ?? false)
     WlrLayershell.layer: overFullscreen || lingering ? WlrLayer.Overlay : WlrLayer.Top
 
-    // A fullscreen window hides the top layer, and Sway sends a hidden
-    // surface no frame callbacks, so Qt stops drawing it. A new layer only
-    // takes effect on the surface's next commit, which then never comes:
-    // the island would stay hidden, and a screenshot would wait forever for
-    // a frame to save. When no frame comes soon after the move, hiding the
-    // window and showing it again makes a new surface, on the overlay layer
-    // from its first frame. Hyprland keeps drawing hidden surfaces, so the
-    // move works there without a new surface.
+    // A fullscreen window hides the top layer, and the compositor may send
+    // a hidden surface no frame callbacks, so Qt stops drawing it: Sway
+    // does, and Hyprland does over a game. A new layer only takes effect on
+    // the surface's next commit, which then never comes: the island would
+    // stay hidden, and a screenshot would wait forever for a frame to save.
+    // When no frame comes soon after the move, hiding the window and showing
+    // it again makes a new surface, on the overlay layer from its first
+    // frame. This runs on every output, not only covered ones: if Mochi
+    // misses a fullscreen window, the move must still work. A surface in
+    // sight draws its frame well before the timer ends.
     readonly property bool coveredHere: Daemon.coveredOutputs.includes(screen?.name ?? "")
     property bool remapping: false
     visible: !remapping
-    // Moving over a fullscreen window, until the first frame there. The
+    // Moving to the overlay layer, until the first frame there. The
     // island holds what it shows next until then, so its opening morph
     // plays from the start instead of half of it passing out of sight.
     property bool moving: false
@@ -118,7 +120,7 @@ PanelWindow {
     // island shrinks and fades out, as it would close anywhere else.
     property bool lingering: false
     onOverFullscreenChanged: {
-        if (overFullscreen && coveredHere) {
+        if (overFullscreen) {
             moving = true;
             stalled.restart();
             island.Window.window?.update();

@@ -29,6 +29,8 @@ pub(crate) enum Event {
     KeyboardLayout(String),
     /// The compositor reloaded its config. Hyprland's.
     ConfigReloaded,
+    /// The outputs a fullscreen window covers now, by name. Hyprland's.
+    Covered(Vec<String>),
     /// The IPC (re)connected: counts kept so far may be stale.
     Connected,
 }
