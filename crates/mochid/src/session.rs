@@ -265,7 +265,7 @@ mod tests {
         Holder {
             pid,
             socket: PathBuf::from("/run/mochi.sock"),
-            version: "0.4.7".into(),
+            version: "0.4.8".into(),
             dev: false,
         }
     }
